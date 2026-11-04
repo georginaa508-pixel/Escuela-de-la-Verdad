@@ -23,7 +23,6 @@ export default function App() {
 
       <section className="welcome">
         <p className="eyebrow">SISTEMA DE GESTIÓN</p>
-        <h1>Organización clara.<br /><em>Servicio coordinado.</em></h1>
         <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
         <div className={`connection-note ${isSupabaseConfigured ? 'connected' : ''}`}>
           <span className="connection-dot" />
