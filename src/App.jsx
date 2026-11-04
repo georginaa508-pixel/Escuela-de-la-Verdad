@@ -16,13 +16,14 @@ export default function App() {
         <div className="brand-mark" aria-hidden="true">EV</div>
         <div className="brand-copy">
           <span className="eyebrow">HONDURAS</span>
-          <strong>Escuela de la Verdad</strong>
         </div>
         <span className="status-pill">Vista inicial</span>
       </header>
 
       <section className="welcome">
         <p className="eyebrow">SISTEMA DE GESTIÓN</p>
+        <h1>Escuela de la Verdad</h1>
+        <p className="motto">DIOS <span>·</span> EDUCACIÓN <span>·</span> CARÁCTER</p>
         <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
         <div className={`connection-note ${isSupabaseConfigured ? 'connected' : ''}`}>
           <span className="connection-dot" />
