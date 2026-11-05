@@ -13,21 +13,21 @@ export default function App() {
   return (
     <main className="page-shell">
       <header className="topbar">
-        <div className="brand-mark" aria-hidden="true">EV</div>
-        <div className="brand-copy">
-          <span className="eyebrow">HONDURAS</span>
-        </div>
+        <span className="eyebrow">HONDURAS</span>
         <span className="status-pill">Vista inicial</span>
       </header>
 
       <section className="welcome">
-        <p className="eyebrow">SISTEMA DE GESTIÓN</p>
-        <h1>Escuela de la Verdad</h1>
-        <p className="motto">DIOS <span>·</span> EDUCACIÓN <span>·</span> CARÁCTER</p>
-        <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
-        <div className={`connection-note ${isSupabaseConfigured ? 'connected' : ''}`}>
-          <span className="connection-dot" />
-          {isSupabaseConfigured ? 'Variables de conexión detectadas' : 'Conexión con Supabase pendiente de configuración'}
+        <img className="school-logo" src="/logo-escuela-verdad.png" alt="Logo oficial de Escuela de la Verdad" />
+        <div className="welcome-copy">
+          <p className="eyebrow">SISTEMA DE GESTIÓN</p>
+          <h1>Escuela de la Verdad</h1>
+          <p className="motto">DIOS <span>·</span> EDUCACIÓN <span>·</span> CARÁCTER</p>
+          <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
+          <div className={`connection-note ${isSupabaseConfigured ? 'connected' : ''}`}>
+            <span className="connection-dot" />
+            {isSupabaseConfigured ? 'Variables de conexión detectadas' : 'Conexión con Supabase pendiente de configuración'}
+          </div>
         </div>
       </section>
 
