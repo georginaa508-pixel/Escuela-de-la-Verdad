@@ -37,6 +37,7 @@ export default function App() {
   const [churchName, setChurchName] = useState('');
   const [savingChurch, setSavingChurch] = useState(false);
   const [participants, setParticipants] = useState([]);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantError, setParticipantError] = useState('');
   const [participantName, setParticipantName] = useState('');
@@ -371,90 +372,128 @@ export default function App() {
             <span className="module-count">{participants.length} registrados</span>
           </div>
 
-          <form className="church-form participant-form" onSubmit={handleAddParticipant}>
-            <label htmlFor="participant-name">Agregar participante</label>
-            <div className="participant-fields">
-              <div className="participant-field">
-                <label htmlFor="participant-name">Nombre completo *</label>
-                <input id="participant-name" value={participantName} onChange={(event) => { setParticipantName(event.target.value); setConfirmDuplicate(false); }} placeholder="Nombre y apellidos" maxLength={180} required />
+          {selectedParticipant ? (
+            <div className="participant-profile">
+              <button className="back-button" type="button" onClick={() => setSelectedParticipant(null)}>← Volver a participantes</button>
+              <div className="profile-header">
+                <div>
+                  <p className="eyebrow">EXPEDIENTE INDIVIDUAL</p>
+                  <h3>{selectedParticipant.nombre_completo}</h3>
+                  <p className="profile-code">{selectedParticipant.codigo || 'Código pendiente'} · {selectedParticipant.iglesia || 'Sin iglesia asignada'}</p>
+                </div>
+                <span className={selectedParticipant.activo ? 'status-active' : 'status-inactive'}>{selectedParticipant.activo ? 'Activo' : 'Inactivo'}</span>
               </div>
-              <div className="participant-field">
-                <label htmlFor="participant-church">Iglesia</label>
-                <select id="participant-church" value={participantChurch} onChange={(event) => setParticipantChurch(event.target.value)}>
-                  <option value="">Sin iglesia asignada</option>
-                  {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
-                </select>
-              </div>
-              <div className="participant-field">
-                <label htmlFor="participant-birth">Fecha de nacimiento</label>
-                <input id="participant-birth" type="date" value={participantBirthDate} onChange={(event) => setParticipantBirthDate(event.target.value)} max={new Date().toISOString().slice(0, 10)} />
-                {participantBirthDate && <small className="field-hint">Edad actual: {calculateAge(participantBirthDate)} años</small>}
-              </div>
-              <div className="participant-field">
-                <label htmlFor="participant-sex">Sexo *</label>
-                <select id="participant-sex" value={participantSex} onChange={(event) => setParticipantSex(event.target.value)} required>
-                  <option value="">Seleccionar</option>
-                  <option value="F">F — Femenino</option>
-                  <option value="M">M — Masculino</option>
-                </select>
-              </div>
-              <div className="participant-field">
-                <label htmlFor="participant-phone">Teléfono del participante</label>
-                <input id="participant-phone" type="tel" value={participantPhone} onChange={(event) => setParticipantPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
-              </div>
-
-              <div className="participant-field">
-                <label htmlFor="participant-needs-book">¿Necesita libro?</label>
-                <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
-                  <option value="false">No</option>
-                  <option value="true">Sí</option>
-                </select>
-              </div>
-              <div className="participant-field">
-                <label htmlFor="participant-diet">Dieta especial por salud (opcional)</label>
-                <input id="participant-diet" value={participantDiet} onChange={(event) => setParticipantDiet(event.target.value)} placeholder="Indica solo la restricción o alimento que debemos evitar" maxLength={300} />
-              </div>
-              <div className="participant-field">
-                <label htmlFor="participant-guidelines">¿Firmó el formulario de directrices?</label>
-                <select id="participant-guidelines" value={participantGuidelinesSigned} onChange={(event) => setParticipantGuidelinesSigned(event.target.value)}>
-                  <option value="false">No</option>
-                  <option value="true">Sí</option>
-                </select>
-              </div>
-            </div>
-            {hasDuplicateParticipant && (
-              <label className="duplicate-confirm">
-                <input type="checkbox" checked={confirmDuplicate} onChange={(event) => setConfirmDuplicate(event.target.checked)} />
-                Ya verifiqué que es otra persona y no un registro duplicado.
-              </label>
-            )}
-            <div className="participant-submit">
-              <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || !participantSex || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
-            </div>
-          </form>
-
-          {participantError && <p className="auth-error" role="alert">{participantError}</p>}
-          <div className="participant-list">
-            {participantsLoading ? <p className="empty-state">Cargando participantes…</p> : participants.length === 0 ? (
-              <div className="empty-state"><strong>Aún no hay participantes registrados.</strong><span>Cuando agregues uno, aparecerá en esta lista.</span></div>
-            ) : (
-              participants.map((participant) => (
-                <article className="participant-row" key={participant.id}>
-                  <div className="participant-info">
-                    <strong>{participant.nombre_completo}</strong>
-                    <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                    {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
-                    {participant.telefono && <span>Teléfono: {participant.telefono}</span>}
-                    <span>{participant.necesita_libro ? 'Necesita libro' : 'No necesita libro'}</span>
-                    {participant.dieta_especial && <span>Dieta especial: {participant.dieta_especial}</span>}
-                    <span>{participant.formulario_directrices_firmado ? 'Formulario de directrices firmado' : 'Formulario de directrices pendiente'}</span>
-                    <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
-                  </div>
-                  <button className="text-button" type="button" onClick={() => handleToggleParticipant(participant)}>{participant.activo ? 'Desactivar' : 'Activar'}</button>
+              <div className="profile-grid">
+                <article className="profile-card">
+                  <p className="eyebrow">DATOS PERSONALES</p>
+                  <dl>
+                    <div><dt>Fecha de nacimiento</dt><dd>{selectedParticipant.fecha_nacimiento ? new Date(selectedParticipant.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-HN') : 'No registrada'}</dd></div>
+                    <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
+                    <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
+                    <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
+                  </dl>
                 </article>
-              ))
-            )}
-          </div>
+                <article className="profile-card">
+                  <p className="eyebrow">INFORMACIÓN PARA LA ESCUELA</p>
+                  <dl>
+                    <div><dt>Necesita libro</dt><dd>{selectedParticipant.necesita_libro ? 'Sí' : 'No'}</dd></div>
+                    <div><dt>Dieta especial por salud</dt><dd>{selectedParticipant.dieta_especial || 'Ninguna registrada'}</dd></div>
+                    <div><dt>Formulario de directrices</dt><dd>{selectedParticipant.formulario_directrices_firmado ? 'Firmado' : 'Pendiente'}</dd></div>
+                  </dl>
+                </article>
+                <article className="profile-card profile-history">
+                  <p className="eyebrow">HISTORIAL DE PARTICIPACIÓN</p>
+                  <strong>Inscripciones por año</strong>
+                  <p>El historial aparecerá aquí cuando terminemos de configurar el módulo de Inscripciones. Los datos actuales del participante se conservan sin cambios.</p>
+                </article>
+              </div>
+            </div>
+          ) : (
+            <>
+              <form className="church-form participant-form" onSubmit={handleAddParticipant}>
+                <label htmlFor="participant-name">Agregar participante</label>
+                <div className="participant-fields">
+                  <div className="participant-field">
+                    <label htmlFor="participant-name">Nombre completo *</label>
+                    <input id="participant-name" value={participantName} onChange={(event) => { setParticipantName(event.target.value); setConfirmDuplicate(false); }} placeholder="Nombre y apellidos" maxLength={180} required />
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-church">Iglesia</label>
+                    <select id="participant-church" value={participantChurch} onChange={(event) => setParticipantChurch(event.target.value)}>
+                      <option value="">Sin iglesia asignada</option>
+                      {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-birth">Fecha de nacimiento</label>
+                    <input id="participant-birth" type="date" value={participantBirthDate} onChange={(event) => setParticipantBirthDate(event.target.value)} max={new Date().toISOString().slice(0, 10)} />
+                    {participantBirthDate && <small className="field-hint">Edad actual: {calculateAge(participantBirthDate)} años</small>}
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-sex">Sexo *</label>
+                    <select id="participant-sex" value={participantSex} onChange={(event) => setParticipantSex(event.target.value)} required>
+                      <option value="">Seleccionar</option>
+                      <option value="F">F — Femenino</option>
+                      <option value="M">M — Masculino</option>
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-phone">Teléfono del participante</label>
+                    <input id="participant-phone" type="tel" value={participantPhone} onChange={(event) => setParticipantPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-needs-book">¿Necesita libro?</label>
+                    <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
+                      <option value="false">No</option>
+                      <option value="true">Sí</option>
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-diet">Dieta especial por salud (opcional)</label>
+                    <input id="participant-diet" value={participantDiet} onChange={(event) => setParticipantDiet(event.target.value)} placeholder="Indica solo la restricción o alimento que debemos evitar" maxLength={300} />
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-guidelines">¿Firmó el formulario de directrices?</label>
+                    <select id="participant-guidelines" value={participantGuidelinesSigned} onChange={(event) => setParticipantGuidelinesSigned(event.target.value)}>
+                      <option value="false">No</option>
+                      <option value="true">Sí</option>
+                    </select>
+                  </div>
+                </div>
+                {hasDuplicateParticipant && (
+                  <label className="duplicate-confirm">
+                    <input type="checkbox" checked={confirmDuplicate} onChange={(event) => setConfirmDuplicate(event.target.checked)} />
+                    Ya verifiqué que es otra persona y no un registro duplicado.
+                  </label>
+                )}
+                <div className="participant-submit">
+                  <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || !participantSex || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
+                </div>
+              </form>
+
+              {participantError && <p className="auth-error" role="alert">{participantError}</p>}
+              <div className="participant-list">
+                {participantsLoading ? <p className="empty-state">Cargando participantes…</p> : participants.length === 0 ? (
+                  <div className="empty-state"><strong>Aún no hay participantes registrados.</strong><span>Cuando agregues uno, aparecerá en esta lista.</span></div>
+                ) : (
+                  participants.map((participant) => (
+                    <article className="participant-row" key={participant.id}>
+                      <div className="participant-info">
+                        <strong>{participant.nombre_completo}</strong>
+                        <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
+                        {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
+                        <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
+                      </div>
+                      <div className="participant-actions">
+                        <button className="text-button" type="button" onClick={() => setSelectedParticipant(participant)}>Ver ficha</button>
+                        <button className="text-button" type="button" onClick={() => handleToggleParticipant(participant)}>{participant.activo ? 'Desactivar' : 'Activar'}</button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </section>
       ) : (
         <>
