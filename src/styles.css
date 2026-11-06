@@ -124,3 +124,30 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .participant-fields { grid-template-columns: 1fr; }
   .participant-row { padding: 15px; }
 }
+
+
+/* Ficha individual de participantes */
+.participant-actions { display: flex; align-items: center; gap: 15px; }
+.participant-profile { padding: 22px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; }
+.participant-profile > .back-button { margin-bottom: 24px; }
+.profile-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid #edf0eb; }
+.profile-header h3 { margin: 9px 0 5px; color: #29483d; font-size: 24px; }
+.profile-code { margin: 0; color: #7a8980; font-size: 12px; }
+.profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding-top: 18px; }
+.profile-card { padding: 19px; border: 1px solid #e7ece5; border-radius: 10px; background: #fbfcfa; }
+.profile-card .eyebrow { margin-bottom: 15px; }
+.profile-card dl { display: flex; flex-direction: column; gap: 13px; margin: 0; }
+.profile-card dl > div { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid #edf0eb; }
+.profile-card dl > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.profile-card dt { color: #7a8980; font-size: 11px; }
+.profile-card dd { margin: 0; color: #29483d; font-size: 12px; font-weight: 600; text-align: right; }
+.profile-history { grid-column: 1 / -1; }
+.profile-history strong { color: #29483d; font-size: 13px; }
+.profile-history p:last-child { max-width: 650px; margin: 8px 0 0; color: #7a8980; font-size: 12px; line-height: 1.7; }
+@media (max-width: 600px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .profile-history { grid-column: auto; }
+  .participant-profile { padding: 16px; }
+  .participant-actions { flex-direction: column; align-items: flex-end; gap: 8px; }
+  .profile-header h3 { font-size: 20px; }
+}
