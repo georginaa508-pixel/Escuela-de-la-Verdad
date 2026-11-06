@@ -102,3 +102,25 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .work-section .section-heading { align-items: flex-start; gap: 12px; }
   .work-section .module-count { white-space: nowrap; }
 }
+
+
+/* Módulo Participantes */
+.participant-form { display: flex; flex-direction: column; gap: 15px; }
+.participant-fields { display: grid; grid-template-columns: 1.5fr 1fr 1.2fr; gap: 12px; }
+.participant-field { display: flex; flex-direction: column; gap: 8px; }
+.participant-field label { margin: 0; }
+.participant-field input, .participant-field select { width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid #dce5dc; border-radius: 8px; outline: none; background: #fbfcfa; color: #203b35; font: inherit; font-size: 12px; }
+.participant-field input:focus, .participant-field select:focus { border-color: #6c9a83; box-shadow: 0 0 0 3px rgba(108, 154, 131, .13); }
+.duplicate-confirm { display: flex !important; align-items: center; gap: 9px; margin: 0 !important; color: #8a6840 !important; font-size: 11px !important; font-weight: 500 !important; }
+.duplicate-confirm input { accent-color: #356b5c; }
+.participant-submit { display: flex; justify-content: flex-end; }
+.participant-list { margin-top: 18px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; overflow: hidden; }
+.participant-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid #edf0eb; }
+.participant-row:last-child { border-bottom: 0; }
+.participant-info { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.participant-info strong { color: #29483d; font-size: 13px; font-weight: 600; }
+.participant-info > span:not(.status-active):not(.status-inactive) { color: #7a8980; font-size: 11px; }
+@media (max-width: 760px) {
+  .participant-fields { grid-template-columns: 1fr; }
+  .participant-row { padding: 15px; }
+}
