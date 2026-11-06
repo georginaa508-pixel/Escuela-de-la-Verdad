@@ -687,7 +687,7 @@ export default function App() {
             <div className="participant-fields enrollment-fields">
               <div className="participant-field">
                 <label htmlFor="enrollment-cycle">Ciclo *</label>
-                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialTypes({}); setEnrollmentInitialLevels({}); }} required>
+                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialLevels({}); }} required>
                   <option value="">Seleccionar ciclo</option>
                   {enrollmentCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
                 </select>
