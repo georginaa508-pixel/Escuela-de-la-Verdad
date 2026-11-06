@@ -124,7 +124,6 @@ export default function App() {
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
-        .eq('activa', true)
         .order('nombre', { ascending: true }),
     ]);
 
@@ -137,7 +136,7 @@ export default function App() {
         ...participant,
         iglesia: (churchData ?? []).find((church) => church.id === participant.iglesia_id)?.nombre ?? '',
       })));
-      setChurches(churchData ?? []);
+      setChurches((churchData ?? []).filter((church) => church.activa));
     }
     setParticipantsLoading(false);
   }
