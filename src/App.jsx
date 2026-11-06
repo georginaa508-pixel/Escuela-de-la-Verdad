@@ -20,6 +20,12 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [activeModule, setActiveModule] = useState('');
+  const [churches, setChurches] = useState([]);
+  const [churchesLoading, setChurchesLoading] = useState(false);
+  const [churchError, setChurchError] = useState('');
+  const [churchName, setChurchName] = useState('');
+  const [savingChurch, setSavingChurch] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -77,6 +83,64 @@ export default function App() {
 
     return () => { active = false; };
   }, [session]);
+
+  async function loadChurches() {
+    setChurchesLoading(true);
+    setChurchError('');
+    const { data, error: queryError } = await supabase
+      .from('iglesias')
+      .select('id, nombre, activa, created_at')
+      .order('nombre', { ascending: true });
+
+    if (queryError) {
+      setChurchError('No se pudieron consultar las iglesias. Revisa la conexión y los permisos de acceso.');
+      setChurches([]);
+    } else {
+      setChurches(data ?? []);
+    }
+    setChurchesLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeModule === 'Iglesias' && profile?.rol === 'coordinacion_general' && profile.activo) {
+      loadChurches();
+    }
+  }, [activeModule, profile]);
+
+  async function handleAddChurch(event) {
+    event.preventDefault();
+    const name = churchName.trim();
+    if (!name) return;
+    setSavingChurch(true);
+    setChurchError('');
+    const { error: insertError } = await supabase
+      .from('iglesias')
+      .insert({ nombre: name, activa: true });
+
+    if (insertError) {
+      setChurchError(insertError.code === '23505'
+        ? 'Ya existe una iglesia con ese nombre.'
+        : 'No se pudo guardar la iglesia. Verifica los permisos e inténtalo de nuevo.');
+    } else {
+      setChurchName('');
+      await loadChurches();
+    }
+    setSavingChurch(false);
+  }
+
+  async function handleToggleChurch(church) {
+    setChurchError('');
+    const { error: updateError } = await supabase
+      .from('iglesias')
+      .update({ activa: !church.activa })
+      .eq('id', church.id);
+
+    if (updateError) {
+      setChurchError('No se pudo actualizar el estado de la iglesia.');
+    } else {
+      await loadChurches();
+    }
+  }
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -156,35 +220,70 @@ export default function App() {
           <button className="logout-button" type="button" onClick={handleLogout}>Cerrar sesión</button>
         </div>
       </header>
-      <section className="welcome">
-        <img className="school-logo" src="/logo-escuela-verdad.png" alt="Logo oficial de Escuela de la Verdad" />
-        <div className="welcome-copy">
-          <p className="eyebrow">SISTEMA DE GESTIÓN</p>
-          <h1>Escuela de la Verdad</h1>
-          <p className="motto">DIOS <span>·</span> EDUCACIÓN <span>·</span> CARÁCTER</p>
-          <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
-          <div className="connection-note connected"><span className="connection-dot" />Sesión iniciada correctamente</div>
-          {profileLoading && <p className="auth-description">Comprobando permisos del perfil…</p>}
-          {profileError && <p className="auth-error" role="alert">{profileError}</p>}
-          {profile && <p className="auth-description">Perfil verificado: {profile.nombre} · {profile.rol}</p>}
-        </div>
-      </section>
-      <section className="modules-section">
-        <div className="section-heading">
-          <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
-          <span className="module-count">05 módulos</span>
-        </div>
-        <div className="module-grid">
-          {modules.map((module) => (
-            <article className="module-card" key={module.number}>
-              <span className="module-number">{module.number}</span>
-              <h3>{module.title}</h3>
-              <p>{module.description}</p>
-              <span className="module-arrow" aria-hidden="true">↗</span>
-            </article>
-          ))}
-        </div>
-      </section>
+
+      {activeModule === 'Iglesias' ? (
+        <section className="work-section">
+          <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
+          <div className="section-heading">
+            <div><p className="eyebrow">REGISTRO GENERAL</p><h2>Iglesias</h2><p className="work-intro">Administra las iglesias que participan en la Escuela de la Verdad.</p></div>
+            <span className="module-count">{churches.length} registradas</span>
+          </div>
+
+          <form className="church-form" onSubmit={handleAddChurch}>
+            <label htmlFor="church-name">Agregar iglesia</label>
+            <div className="church-form-row">
+              <input id="church-name" value={churchName} onChange={(event) => setChurchName(event.target.value)} placeholder="Nombre de la iglesia" maxLength={120} required />
+              <button className="primary-button" type="submit" disabled={savingChurch || !churchName.trim()}>{savingChurch ? 'Guardando…' : 'Agregar iglesia'}</button>
+            </div>
+          </form>
+
+          {churchError && <p className="auth-error" role="alert">{churchError}</p>}
+          <div className="church-list">
+            {churchesLoading ? <p className="empty-state">Cargando iglesias…</p> : churches.length === 0 ? (
+              <div className="empty-state"><strong>Aún no hay iglesias registradas.</strong><span>Cuando agregues una, aparecerá en esta lista.</span></div>
+            ) : (
+              churches.map((church) => (
+                <article className="church-row" key={church.id}>
+                  <div><strong>{church.nombre}</strong><span className={church.activa ? 'status-active' : 'status-inactive'}>{church.activa ? 'Activa' : 'Inactiva'}</span></div>
+                  <button className="text-button" type="button" onClick={() => handleToggleChurch(church)}>{church.activa ? 'Desactivar' : 'Activar'}</button>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="welcome">
+            <img className="school-logo" src="/logo-escuela-verdad.png" alt="Logo oficial de Escuela de la Verdad" />
+            <div className="welcome-copy">
+              <p className="eyebrow">SISTEMA DE GESTIÓN</p>
+              <h1>Escuela de la Verdad</h1>
+              <p className="motto">DIOS <span>·</span> EDUCACIÓN <span>·</span> CARÁCTER</p>
+              <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
+              <div className="connection-note connected"><span className="connection-dot" />Sesión iniciada correctamente</div>
+              {profileLoading && <p className="auth-description">Comprobando permisos del perfil…</p>}
+              {profileError && <p className="auth-error" role="alert">{profileError}</p>}
+              {profile && <p className="auth-description">Perfil verificado: {profile.nombre} · {profile.rol}</p>}
+            </div>
+          </section>
+          <section className="modules-section">
+            <div className="section-heading">
+              <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
+              <span className="module-count">05 módulos</span>
+            </div>
+            <div className="module-grid">
+              {modules.map((module) => (
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => module.title === 'Iglesias' && setActiveModule('Iglesias')}>
+                  <span className="module-number">{module.number}</span>
+                  <h3>{module.title}</h3>
+                  <p>{module.description}</p>
+                  <span className="module-arrow" aria-hidden="true">↗</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
       <footer>Escuela de la Verdad · Honduras</footer>
     </main>
   );
