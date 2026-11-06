@@ -63,6 +63,8 @@ export default function App() {
   const [enrollmentChurchId, setEnrollmentChurchId] = useState('');
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState([]);
   const [enrollmentServerLevels, setEnrollmentServerLevels] = useState({});
+  const [enrollmentInitialTypes, setEnrollmentInitialTypes] = useState({});
+  const [enrollmentInitialLevels, setEnrollmentInitialLevels] = useState({});
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
   const [savingParticipationId, setSavingParticipationId] = useState('');
@@ -257,7 +259,7 @@ export default function App() {
 
   function getEnrollmentType(participantId, cycleId) {
     const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
-    if (!previousEnrollment) return 'joven';
+    if (!previousEnrollment) return enrollmentInitialTypes[participantId] || '';
     if (previousEnrollment.tipo_inscripcion === 'servidor') return 'servidor';
     const previousLevel = enrollmentLevels.find((level) => level.id === previousEnrollment.nivel_id);
     const previousNumber = previousLevel?.numero ?? previousEnrollment.numeroNivel ?? 1;
@@ -282,6 +284,10 @@ export default function App() {
   }
 
   function getEnrollmentLevelFor(participantId, cycleId, serverLevelId) {
+    const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
+    if (!previousEnrollment) {
+      return enrollmentLevels.find((level) => level.id === enrollmentInitialLevels[participantId] && level.activo) || null;
+    }
     if (getEnrollmentType(participantId, cycleId) === 'servidor') {
       return enrollmentLevels.find((level) => level.id === serverLevelId && level.activo) || null;
     }
@@ -316,7 +322,7 @@ export default function App() {
         enrollmentCycleId,
         enrollmentServerLevels[participant.id]
       );
-      return level ? {
+      return level && tipoInscripcion ? {
         participante_id: participant.id,
         ciclo_id: enrollmentCycleId,
         nivel_id: level.id,
@@ -339,6 +345,8 @@ export default function App() {
     } else {
       setSelectedEnrollmentIds([]);
       setEnrollmentServerLevels({});
+      setEnrollmentInitialTypes({});
+      setEnrollmentInitialLevels({});
       await loadEnrollments();
     }
     setSavingEnrollment(false);
@@ -617,7 +625,7 @@ export default function App() {
             <div className="participant-fields enrollment-fields">
               <div className="participant-field">
                 <label htmlFor="enrollment-cycle">Ciclo *</label>
-                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); }} required>
+                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialTypes({}); setEnrollmentInitialLevels({}); }} required>
                   <option value="">Seleccionar ciclo</option>
                   {enrollmentCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
                 </select>
@@ -650,6 +658,7 @@ export default function App() {
                     {churchParticipants.map((participant) => {
                       const alreadyEnrolled = enrolledParticipantIds.has(participant.id);
                       const isSelected = selectedEnrollmentIds.includes(participant.id);
+                      const previousEnrollment = getPreviousEnrollment(participant.id, enrollmentCycleId);
                       const type = getEnrollmentType(participant.id, enrollmentCycleId);
                       const recommendedLevel = getRecommendedLevel(participant.id, enrollmentCycleId);
                       return (
@@ -665,10 +674,27 @@ export default function App() {
                             />
                             <span>
                               <strong>{participant.nombre_completo}</strong>
-                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : type === 'servidor' ? 'Servidor' : `Joven · ${recommendedLevel?.nombre || 'Nivel pendiente'}`}</small>
+                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : previousEnrollment ? (type === 'servidor' ? 'Servidor · nivel a elegir' : `Joven · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}`) : 'Sin historial digital · confirmar tipo y nivel inicial'}</small>
                             </span>
                           </label>
-                          {isSelected && type === 'servidor' && (
+                          {isSelected && !previousEnrollment && (
+                            <div className="participant-fields enrollment-fields enrollment-initial-fields">
+                              <div className="participant-field enrollment-server-choice">
+                                <label htmlFor={`initial-type-${participant.id}`}>Tipo de inscripción inicial *</label>
+                                <select id={`initial-type-${participant.id}`} value={enrollmentInitialTypes[participant.id] || ''} onChange={(event) => setEnrollmentInitialTypes((current) => ({ ...current, [participant.id]: event.target.value }))} required>
+                                  <option value="">Confirmar tipo</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
+                                </select>
+                              </div>
+                              <div className="participant-field enrollment-server-choice">
+                                <label htmlFor={`initial-level-${participant.id}`}>Nivel inicial confirmado *</label>
+                                <select id={`initial-level-${participant.id}`} value={enrollmentInitialLevels[participant.id] || ''} onChange={(event) => setEnrollmentInitialLevels((current) => ({ ...current, [participant.id]: event.target.value }))} required>
+                                  <option value="">Seleccionar nivel</option>
+                                  {enrollmentLevels.filter((level) => level.activo).map((level) => <option key={level.id} value={level.id}>{level.nombre}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                          {isSelected && previousEnrollment && type === 'servidor' && (
                             <div className="participant-field enrollment-server-choice">
                               <label htmlFor={`server-level-${participant.id}`}>Nivel del servidor *</label>
                               <select
@@ -689,10 +715,10 @@ export default function App() {
                 )}
               </div>
             )}
-            <p className="enrollment-note">Los jóvenes avanzan automáticamente si completan el ciclo a tiempo completo. Al completar el Nivel 6 pasan a ser servidores. Los servidores pueden elegir cualquiera de los seis niveles cada año.</p>
+            <p className="enrollment-note">En la primera inscripción digital, Coordinación confirma el tipo (joven o servidor) y el nivel de cada persona sin historial. Después, el sistema recomienda el avance de los jóvenes según su participación; los servidores eligen su nivel cada año.</p>
             <div className="participant-submit enrollment-submit">
               <span className="enrollment-selected-count">{selectedEligibleParticipants.length} seleccionados</span>
-              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => getEnrollmentType(participant.id, enrollmentCycleId) === 'servidor' && !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]))}>
+              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => !getEnrollmentType(participant.id, enrollmentCycleId) || !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]))}>
                 {savingEnrollment ? 'Guardando…' : 'Confirmar inscripciones'}
               </button>
             </div>
