@@ -162,3 +162,25 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .participant-edit-buttons { flex-direction: column-reverse; align-items: stretch; }
   .participant-edit-buttons .primary-button { width: 100%; }
 }
+
+
+/* Módulo Inscripciones */
+.enrollment-fields { grid-template-columns: 1fr 1.5fr 1fr; align-items: end; }
+.enrollment-level-field { min-width: 0; }
+.auto-level-value { display: flex; align-items: center; min-height: 44px; padding: 0 13px; border: 1px solid #dce5dc; border-radius: 8px; background: #f0f5ef; color: #245b4d; font-size: 13px; font-weight: 700; }
+.enrollment-note { margin: -2px 0 0; color: #7a8980; font-size: 11px; line-height: 1.6; }
+.enrollment-list { margin-top: 18px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; overflow: hidden; }
+.enrollment-row { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 18px 20px; border-bottom: 1px solid #edf0eb; }
+.enrollment-row:last-child { border-bottom: 0; }
+.enrollment-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.enrollment-main strong { color: #29483d; font-size: 13px; font-weight: 600; }
+.enrollment-main span { color: #7a8980; font-size: 11px; }
+.enrollment-participation { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.enrollment-participation label { color: #435e52; font-size: 11px; font-weight: 600; }
+.enrollment-participation select { min-height: 38px; padding: 0 10px; border: 1px solid #dce5dc; border-radius: 8px; background: #fbfcfa; color: #29483d; font: inherit; font-size: 11px; }
+.enrollment-participation .text-button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 760px) {
+  .enrollment-fields { grid-template-columns: 1fr; }
+  .enrollment-row { align-items: stretch; flex-direction: column; gap: 14px; padding: 16px; }
+  .enrollment-participation { justify-content: flex-start; }
+}
