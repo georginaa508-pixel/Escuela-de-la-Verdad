@@ -47,6 +47,8 @@ export default function App() {
   const [participantName, setParticipantName] = useState('');
   const [participantChurch, setParticipantChurch] = useState('');
   const [participantType, setParticipantType] = useState('');
+  const [participantEducationSystem, setParticipantEducationSystem] = useState('');
+  const [participantSchoolYear, setParticipantSchoolYear] = useState('');
   const [participantBirthDate, setParticipantBirthDate] = useState('');
   const [participantSex, setParticipantSex] = useState('');
   const [participantPhone, setParticipantPhone] = useState('');
@@ -166,7 +168,7 @@ export default function App() {
       { data: churchData, error: churchQueryError },
     ] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, sistema_educativo, anio_escolar, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -455,6 +457,8 @@ export default function App() {
         nombre_completo: name,
         iglesia_id: participantChurch || null,
         tipo_participante: participantType,
+        sistema_educativo: participantEducationSystem || null,
+        anio_escolar: participantSchoolYear || null,
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
@@ -472,6 +476,8 @@ export default function App() {
       setParticipantName('');
       setParticipantChurch('');
       setParticipantType('');
+      setParticipantEducationSystem('');
+      setParticipantSchoolYear('');
       setParticipantBirthDate('');
       setParticipantSex('');
       setParticipantPhone('');
@@ -553,6 +559,8 @@ export default function App() {
           nombre_completo: name,
           iglesia_id: participantImportChurch,
           tipo_participante: type,
+          sistema_educativo: String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : null,
+          anio_escolar: String(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')).trim() || null,
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
@@ -601,6 +609,8 @@ export default function App() {
       nombre_completo: selectedParticipant.nombre_completo.trim(),
       iglesia_id: selectedParticipant.iglesia_id || null,
       tipo_participante: selectedParticipant.tipo_participante,
+      sistema_educativo: selectedParticipant.sistema_educativo || null,
+      anio_escolar: selectedParticipant.anio_escolar || null,
       fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
       sexo: selectedParticipant.sexo,
       telefono: selectedParticipant.telefono?.trim() || null,
@@ -1060,6 +1070,8 @@ export default function App() {
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
                     <div><dt>Asiste como</dt><dd>{selectedParticipant.tipo_participante === 'servidor' ? 'Servidor' : selectedParticipant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}</dd></div>
+                    <div><dt>Sistema educativo</dt><dd>{selectedParticipant.sistema_educativo === 'nacional' ? 'Nacional' : selectedParticipant.sistema_educativo === 'americano' ? 'Americano' : 'No registrado'}</dd></div>
+                    <div><dt>Año escolar (último completado)</dt><dd>{selectedParticipant.anio_escolar || 'No registrado'}</dd></div>
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
                   </dl>
                 </article>
@@ -1097,7 +1109,7 @@ export default function App() {
                     <input id="participant-excel" type="file" accept=".xlsx,.xls" onChange={handleParticipantExcel} disabled={!participantImportChurch || participantImporting} />
                   </div>
                 </div>
-                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven/Servidor) y Sexo (F/M). Opcionales: Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
+                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven/Servidor) y Sexo (F/M). Opcionales: Sistema educativo (Nacional/Americano), Año escolar (último completado: Séptimo a Duodécimo o Universidad), Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
                 {participantImportFile && <p className="field-hint">Archivo: {participantImportFile}</p>}
                 {participantImportError && <p className="auth-error" role="alert">{participantImportError}</p>}
                 {participantImportRows.length > 0 && (
@@ -1147,6 +1159,18 @@ export default function App() {
                     <label htmlFor="participant-type">Asiste como *</label>
                     <select id="participant-type" value={participantType} onChange={(event) => setParticipantType(event.target.value)} required>
                       <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-education-system">Sistema educativo</label>
+                    <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => setParticipantEducationSystem(event.target.value)}>
+                      <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-school-year">Año escolar (último completado)</label>
+                    <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
+                      <option value="">Seleccionar</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option>
                     </select>
                   </div>
                   <div className="participant-field">
@@ -1206,7 +1230,7 @@ export default function App() {
                       <div className="participant-info">
                         <strong>{participant.nombre_completo}</strong>
                         <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                        <span>{participant.tipo_participante === 'servidor' ? 'Servidor' : participant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}</span>
+                        <span>{participant.tipo_participante === 'servidor' ? 'Servidor' : participant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}{participant.anio_escolar ? ` · ${participant.anio_escolar}` : ''}</span>
                         {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                         <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                       </div>
