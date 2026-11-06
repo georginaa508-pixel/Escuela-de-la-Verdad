@@ -10,6 +10,24 @@ const modules = [
   { number: '05', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
 ];
 
+function getCycleDates(startDate, endDate) {
+  if (!startDate || !endDate) return [];
+  const dates = [];
+  const current = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  while (current <= end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function formatCycleDate(dateString) {
+  return new Date(`${dateString}T00:00:00Z`).toLocaleDateString('es-HN', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
+  });
+}
+
 function calculateAge(dateString) {
   if (!dateString) return null;
   const today = new Date();
@@ -73,6 +91,7 @@ export default function App() {
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState([]);
   const [enrollmentServerLevels, setEnrollmentServerLevels] = useState({});
   const [enrollmentInitialLevels, setEnrollmentInitialLevels] = useState({});
+  const [enrollmentSupportDays, setEnrollmentSupportDays] = useState({});
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
   const [savingParticipationId, setSavingParticipationId] = useState('');
@@ -274,8 +293,10 @@ export default function App() {
   function getEnrollmentType(participantId, cycleId) {
     const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
     const participantType = enrollmentParticipants.find((participant) => participant.id === participantId)?.tipo_participante;
+    if (['mensajero', 'cocina'].includes(participantType)) return participantType;
     if (!previousEnrollment) return participantType || '';
     if (participantType === 'servidor' || previousEnrollment.tipo_inscripcion === 'servidor') return 'servidor';
+    if (participantType === 'entrenante') return 'entrenante';
     const previousLevel = enrollmentLevels.find((level) => level.id === previousEnrollment.nivel_id);
     const previousNumber = previousLevel?.numero ?? previousEnrollment.numeroNivel ?? 1;
     return previousNumber === 6 && previousEnrollment.tipo_participacion === 'tiempo_completo'
@@ -299,6 +320,7 @@ export default function App() {
   }
 
   function getEnrollmentLevelFor(participantId, cycleId, serverLevelId) {
+    if (['mensajero', 'cocina'].includes(getEnrollmentType(participantId, cycleId))) return null;
     const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
     if (!previousEnrollment) {
       return enrollmentLevels.find((level) => level.id === enrollmentInitialLevels[participantId] && level.activo) || null;
@@ -323,6 +345,10 @@ export default function App() {
   );
   const allEligibleSelected = eligibleChurchParticipants.length > 0
     && eligibleChurchParticipants.every((participant) => selectedEnrollmentIds.includes(participant.id));
+  const selectedCycle = enrollmentCycles.find((cycle) => cycle.id === enrollmentCycleId);
+  const selectedCycleDates = getCycleDates(selectedCycle?.fecha_inicio, selectedCycle?.fecha_fin);
+  const courseCycleEnrollments = enrollments.filter((item) => item.ciclo_id === enrollmentCycleId
+    && ['joven', 'servidor', 'entrenante'].includes(item.tipo_inscripcion));
 
   async function handleBulkAddEnrollments(event) {
     event.preventDefault();
@@ -332,43 +358,63 @@ export default function App() {
     }
     const rows = selectedEligibleParticipants.map((participant) => {
       const tipoInscripcion = getEnrollmentType(participant.id, enrollmentCycleId);
-      const level = getEnrollmentLevelFor(
-        participant.id,
-        enrollmentCycleId,
-        enrollmentServerLevels[participant.id]
-      );
-      return level && tipoInscripcion ? {
+      const isSupport = ['mensajero', 'cocina'].includes(tipoInscripcion);
+      const level = getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]);
+      const schedule = enrollmentSupportDays[participant.id] || {};
+      if (isSupport && !selectedCycleDates.some((date) => schedule[date])) return null;
+      return tipoInscripcion && (isSupport || level) ? {
         participante_id: participant.id,
         ciclo_id: enrollmentCycleId,
-        nivel_id: level.id,
+        nivel_id: level?.id || null,
         tipo_inscripcion: tipoInscripcion,
         estado: 'inscrito',
       } : null;
     });
     if (rows.some((row) => !row)) {
-      setEnrollmentError('Selecciona el nivel correspondiente para cada servidor antes de confirmar.');
+      setEnrollmentError('Confirma el nivel de cada Joven, Servidor o Entrenante y selecciona al menos un día para cada Mensajero o persona de Cocina.');
       return;
     }
 
     setSavingEnrollment(true);
     setEnrollmentError('');
-    const { error: insertError } = await supabase.from('inscripciones').insert(rows);
+    const { data: insertedRows, error: insertError } = await supabase
+      .from('inscripciones').insert(rows).select('id, participante_id');
     if (insertError) {
       setEnrollmentError(insertError.code === '23505'
         ? 'Una o más personas ya tienen inscripción en este ciclo. Actualiza la lista e inténtalo de nuevo.'
         : 'No se pudieron guardar las inscripciones. Verifica los permisos e inténtalo de nuevo.');
     } else {
+      const dayRows = (insertedRows || []).flatMap((inserted) => {
+        const type = rows.find((row) => row.participante_id === inserted.participante_id)?.tipo_inscripcion;
+        if (!['mensajero', 'cocina'].includes(type)) return [];
+        return selectedCycleDates
+          .filter((date) => enrollmentSupportDays[inserted.participante_id]?.[date])
+          .map((date) => ({
+            inscripcion_id: inserted.id,
+            fecha: date,
+            jornada: enrollmentSupportDays[inserted.participante_id][date],
+          }));
+      });
+      if (dayRows.length) {
+        const { error: daysError } = await supabase.from('inscripcion_dias').insert(dayRows);
+        if (daysError) {
+          await supabase.from('inscripciones').delete().in('id', insertedRows.map((row) => row.id));
+          setEnrollmentError('No se guardaron los días de asistencia; las inscripciones nuevas se revirtieron. Verifica que esté creada la tabla de días y vuelve a intentarlo.');
+          setSavingEnrollment(false);
+          return;
+        }
+      }
       setSelectedEnrollmentIds([]);
       setEnrollmentServerLevels({});
-     
       setEnrollmentInitialLevels({});
+      setEnrollmentSupportDays({});
       await loadEnrollments();
     }
     setSavingEnrollment(false);
   }
 
   function startCycleClosure() {
-    const currentCycleRows = enrollments.filter((item) => item.ciclo_id === enrollmentCycleId);
+    const currentCycleRows = enrollments.filter((item) => item.ciclo_id === enrollmentCycleId && ['joven', 'servidor', 'entrenante'].includes(item.tipo_inscripcion));
     const existingExceptions = {};
     currentCycleRows.forEach((item) => {
       if (item.tipo_participacion && item.tipo_participacion !== 'tiempo_completo') {
@@ -381,7 +427,7 @@ export default function App() {
   }
 
   async function handleSaveCycleClosure() {
-    const cycleRows = enrollments.filter((item) => item.ciclo_id === closingCycleId);
+    const cycleRows = enrollments.filter((item) => item.ciclo_id === closingCycleId && ['joven', 'servidor', 'entrenante'].includes(item.tipo_inscripcion));
     if (cycleRows.length === 0) {
       setEnrollmentError('Este ciclo no tiene inscripciones para cerrar.');
       return;
@@ -391,7 +437,7 @@ export default function App() {
     const { error: defaultError } = await supabase
       .from('inscripciones')
       .update({ tipo_participacion: 'tiempo_completo' })
-      .eq('ciclo_id', closingCycleId);
+      .in('id', cycleRows.map((item) => item.id));
 
     if (defaultError) {
       setEnrollmentError('No se pudo guardar el cierre del ciclo. No se confirmó ningún cambio; inténtalo de nuevo.');
@@ -560,7 +606,7 @@ export default function App() {
         };
         const name = String(pick('nombrecompleto', 'nombre', 'nombresyapellidos', 'participante')).trim();
         const typeRaw = String(pick('asistecomo', 'tipo', 'tipoparticipante')).trim().toLowerCase();
-        const type = ['joven', 'j'].includes(typeRaw) ? 'joven' : ['servidor', 's'].includes(typeRaw) ? 'servidor' : '';
+        const type = ['joven', 'j'].includes(typeRaw) ? 'joven' : ['servidor', 's'].includes(typeRaw) ? 'servidor' : ['entrenante', 'e'].includes(typeRaw) ? 'entrenante' : ['mensajero', 'mensa'].includes(typeRaw) ? 'mensajero' : ['cocina', 'c'].includes(typeRaw) ? 'cocina' : '';
         const sexRaw = String(pick('sexo', 'genero')).trim().toLowerCase();
         const sex = ['f', 'femenino', 'mujer'].includes(sexRaw) ? 'F' : ['m', 'masculino', 'hombre'].includes(sexRaw) ? 'M' : '';
         const birthValue = pick('fechadenacimiento', 'nacimiento');
@@ -570,7 +616,7 @@ export default function App() {
         if (name) seenNames.add(name.toLocaleLowerCase());
         const errors = [];
         if (!name) errors.push('Falta el nombre completo');
-        if (!type) errors.push('Asiste como debe ser Joven o Servidor');
+        if (!type) errors.push('Asiste como debe ser Joven, Servidor, Entrenante, Mensajero o Cocina');
         if (!sex) errors.push('Sexo debe ser F o M');
         if (birthValue && !birth) errors.push('Fecha de nacimiento no válida');
         return {
@@ -878,7 +924,38 @@ export default function App() {
                               <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : previousEnrollment ? (type === 'servidor' ? 'Servidor · nivel a elegir' : `Joven · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}`) : `${type === 'servidor' ? 'Servidor' : type === 'joven' ? 'Joven' : 'Clasificación pendiente'} · confirmar nivel inicial`}</small>
                             </span>
                           </label>
-                          {isSelected && !previousEnrollment && (
+                          {isSelected && ['mensajero', 'cocina'].includes(type) && (
+                            <div className="enrollment-support-days">
+                              <strong>Días de asistencia *</strong>
+                              <p className="field-hint">Selecciona las fechas en que asistirá y el horario de cada una.</p>
+                              {selectedCycleDates.map((date) => {
+                                const dayValue = enrollmentSupportDays[participant.id]?.[date] || '';
+                                return (
+                                  <div className="enrollment-support-day" key={date}>
+                                    <label className="enrollment-support-day-label">
+                                      <input type="checkbox" checked={Boolean(dayValue)} onChange={(event) => setEnrollmentSupportDays((current) => {
+                                        const next = { ...(current[participant.id] || {}) };
+                                        if (event.target.checked) next[date] = 'dia_completo'; else delete next[date];
+                                        return { ...current, [participant.id]: next };
+                                      })} />
+                                      <span>{formatCycleDate(date)}</span>
+                                    </label>
+                                    {dayValue && (
+                                      <select aria-label={`Horario ${formatCycleDate(date)}`} value={dayValue} onChange={(event) => setEnrollmentSupportDays((current) => ({
+                                        ...current,
+                                        [participant.id]: { ...(current[participant.id] || {}), [date]: event.target.value },
+                                      }))}>
+                                        <option value="dia_completo">Día completo</option>
+                                        <option value="manana">Mañana</option>
+                                        <option value="tarde">Tarde</option>
+                                      </select>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {isSelected && !previousEnrollment && !['mensajero', 'cocina'].includes(type) && (
                             <div className="participant-fields enrollment-fields enrollment-initial-fields">
                               <div className="participant-field enrollment-server-choice">
                                 <label htmlFor={`initial-level-${participant.id}`}>Nivel inicial confirmado *</label>
@@ -913,14 +990,18 @@ export default function App() {
             <p className="enrollment-note">La clasificación se toma del expediente de Participantes. En la primera inscripción digital, Coordinación confirma el nivel inicial; después, el sistema recomienda el avance de los jóvenes según su participación y los servidores eligen su nivel cada año.</p>
             <div className="participant-submit enrollment-submit">
               <span className="enrollment-selected-count">{selectedEligibleParticipants.length} seleccionados</span>
-              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => !getEnrollmentType(participant.id, enrollmentCycleId) || !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]))}>
+              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => {
+                const type = getEnrollmentType(participant.id, enrollmentCycleId);
+                const support = ['mensajero', 'cocina'].includes(type);
+                return !type || (!support && !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id])) || (support && !selectedCycleDates.some((date) => enrollmentSupportDays[participant.id]?.[date]));
+              })}>
                 {savingEnrollment ? 'Guardando…' : 'Confirmar inscripciones'}
               </button>
             </div>
           </form>
 
           {enrollmentError && <p className="auth-error" role="alert">{enrollmentError}</p>}
-          {enrollmentCycleId && enrollments.some((item) => item.ciclo_id === enrollmentCycleId) && (
+          {enrollmentCycleId && courseCycleEnrollments.length > 0 && (
             <section className="cycle-closure">
               <div className="cycle-closure-heading">
                 <div>
@@ -933,11 +1014,11 @@ export default function App() {
               {closingCycleId && (
                 <>
                   <div className="cycle-closure-summary">
-                    <span><strong>{enrollments.filter((item) => item.ciclo_id === closingCycleId).length - Object.keys(closureExceptions).length}</strong> tiempo completo</span>
+                    <span><strong>{courseCycleEnrollments.length - Object.keys(closureExceptions).length}</strong> tiempo completo</span>
                     <span><strong>{Object.keys(closureExceptions).length}</strong> excepciones</span>
                   </div>
                   <div className="cycle-exception-list">
-                    {enrollments.filter((item) => item.ciclo_id === closingCycleId).map((item) => {
+                    {enrollments.filter((item) => item.ciclo_id === closingCycleId && ['joven', 'servidor', 'entrenante'].includes(item.tipo_inscripcion)).map((item) => {
                       const exceptionValue = closureExceptions[item.id] || '';
                       return (
                         <div className="cycle-exception-row" key={item.id}>
@@ -1041,7 +1122,7 @@ export default function App() {
                     <div className="participant-field">
                       <label htmlFor="edit-participant-type">Asiste como *</label>
                       <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, tipo_participante: event.target.value })} required>
-                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
+                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                       </select>
                     </div>
                     <div className="participant-field">
@@ -1100,7 +1181,7 @@ export default function App() {
                     <div><dt>Fecha de nacimiento</dt><dd>{selectedParticipant.fecha_nacimiento ? new Date(selectedParticipant.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-HN') : 'No registrada'}</dd></div>
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
-                    <div><dt>Asiste como</dt><dd>{selectedParticipant.tipo_participante === 'servidor' ? 'Servidor' : selectedParticipant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}</dd></div>
+                    <div><dt>Asiste como</dt><dd>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[selectedParticipant.tipo_participante] || 'Pendiente de selección'}</dd></div>
                     <div><dt>Sistema educativo</dt><dd>{selectedParticipant.sistema_educativo === 'nacional' ? 'Nacional' : selectedParticipant.sistema_educativo === 'americano' ? 'Americano' : 'No registrado'}</dd></div>
                     <div><dt>Año escolar (último completado)</dt><dd>{selectedParticipant.anio_escolar || 'No registrado'}</dd></div>
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
@@ -1140,7 +1221,7 @@ export default function App() {
                     <input id="participant-excel" type="file" accept=".xlsx,.xls" onChange={handleParticipantExcel} disabled={!participantImportChurch || participantImporting} />
                   </div>
                 </div>
-                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven/Servidor) y Sexo (F/M). Opcionales: Sistema educativo (Nacional/Americano), Año escolar (último completado: Sexto a Duodécimo, Universidad, Graduado o ETC), Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
+                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven, Servidor, Entrenante, Mensajero o Cocina) y Sexo (F/M). Opcionales: Sistema educativo (Nacional/Americano), Año escolar (último completado: Sexto a Duodécimo, Universidad, Graduado o ETC), Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
                 {participantImportFile && <p className="field-hint">Archivo: {participantImportFile}</p>}
                 {participantImportError && <p className="auth-error" role="alert">{participantImportError}</p>}
                 {participantImportRows.length > 0 && (
@@ -1154,7 +1235,7 @@ export default function App() {
                         <article className="participant-row" key={row.rowNumber}>
                           <div className="participant-info">
                             <strong>Fila {row.rowNumber}: {row.nombre_completo || 'Sin nombre'}</strong>
-                            <span>{row.tipo_participante === 'servidor' ? 'Servidor' : row.tipo_participante === 'joven' ? 'Joven' : 'Tipo pendiente'} · {row.sexo || 'Sexo pendiente'}</span>
+                            <span>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[row.tipo_participante] || 'Tipo pendiente'} · {row.sexo || 'Sexo pendiente'}</span>
                             {row.duplicate && <span className="status-inactive">{row.duplicateReason} — se omitirá</span>}
                             {row.errors.map((message) => <span className="status-inactive" key={message}>{message}</span>)}
                           </div>
