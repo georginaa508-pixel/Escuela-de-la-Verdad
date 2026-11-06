@@ -151,3 +151,14 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .participant-actions { flex-direction: column; align-items: flex-end; gap: 8px; }
   .profile-header h3 { font-size: 20px; }
 }
+
+
+/* Edición del expediente individual */
+.profile-edit-actions { display: flex; justify-content: flex-end; padding-top: 18px; }
+.profile-edit-form { margin-top: 18px; }
+.profile-edit-form > .eyebrow { margin: 0 0 2px; }
+.participant-edit-buttons { display: flex; justify-content: flex-end; align-items: center; gap: 18px; }
+@media (max-width: 560px) {
+  .participant-edit-buttons { flex-direction: column-reverse; align-items: stretch; }
+  .participant-edit-buttons .primary-button { width: 100%; }
+}
