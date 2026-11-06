@@ -67,3 +67,38 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .module-count { font-size: 10px; }
   .auth-card { padding: 32px 24px 26px; }
 }
+
+
+/* Módulo Iglesias */
+.module-card-button { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+.module-card-button:hover { border-color: #9bb8a6; transform: translateY(-2px); box-shadow: 0 8px 22px rgba(35, 67, 54, .06); }
+.work-section { min-height: 65vh; padding: 38px 0 70px; }
+.back-button, .text-button { border: 0; background: transparent; color: #356b5c; font: inherit; cursor: pointer; }
+.back-button { padding: 0; margin-bottom: 30px; font-size: 13px; }
+.work-section .section-heading { align-items: center; margin-bottom: 28px; }
+.work-section h2 { font-size: 32px; }
+.work-intro { margin: 9px 0 0; color: #74877d; font-size: 13px; }
+.church-form { padding: 22px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; }
+.church-form label { display: block; margin-bottom: 10px; color: #435e52; font-size: 12px; font-weight: 700; }
+.church-form-row { display: flex; gap: 10px; }
+.church-form input { flex: 1; min-width: 0; min-height: 44px; padding: 0 13px; border: 1px solid #dce5dc; border-radius: 8px; outline: none; background: #fbfcfa; color: #203b35; font: inherit; font-size: 13px; }
+.church-form input:focus { border-color: #6c9a83; box-shadow: 0 0 0 3px rgba(108, 154, 131, .13); }
+.primary-button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 8px; background: #245b4d; color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.primary-button:disabled { opacity: .55; cursor: not-allowed; }
+.church-list { margin-top: 18px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; overflow: hidden; }
+.church-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 20px; border-bottom: 1px solid #edf0eb; }
+.church-row:last-child { border-bottom: 0; }
+.church-row > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.church-row strong { color: #29483d; font-size: 13px; font-weight: 600; }
+.status-active, .status-inactive { padding: 4px 8px; border-radius: 999px; font-size: 10px; }
+.status-active { background: #e6f1e8; color: #38684b; }
+.status-inactive { background: #f1eee8; color: #857454; }
+.text-button { font-size: 11px; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.empty-state { display: flex; flex-direction: column; gap: 7px; align-items: center; padding: 34px 18px; color: #7a8980; font-size: 12px; text-align: center; }
+.empty-state strong { color: #435e52; font-size: 13px; }
+@media (max-width: 560px) {
+  .church-form-row { flex-direction: column; }
+  .church-row { padding: 15px; }
+  .work-section .section-heading { align-items: flex-start; gap: 12px; }
+  .work-section .module-count { white-space: nowrap; }
+}
