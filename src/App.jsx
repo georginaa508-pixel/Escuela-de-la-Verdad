@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { isSupabaseConfigured, supabase } from './lib/supabase.js';
 
 const modules = [
@@ -54,6 +55,11 @@ export default function App() {
   const [participantGuidelinesSigned, setParticipantGuidelinesSigned] = useState('false');
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [savingParticipant, setSavingParticipant] = useState(false);
+  const [participantImportChurch, setParticipantImportChurch] = useState('');
+  const [participantImportRows, setParticipantImportRows] = useState([]);
+  const [participantImportFile, setParticipantImportFile] = useState('');
+  const [participantImportError, setParticipantImportError] = useState('');
+  const [participantImporting, setParticipantImporting] = useState(false);
   const [enrollmentParticipants, setEnrollmentParticipants] = useState([]);
   const [enrollmentCycles, setEnrollmentCycles] = useState([]);
   const [enrollmentLevels, setEnrollmentLevels] = useState([]);
@@ -476,6 +482,114 @@ export default function App() {
       await loadParticipants();
     }
     setSavingParticipant(false);
+  }
+
+  function normalizeImportHeader(value) {
+    return String(value ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function importBoolean(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return ['si', 'sí', 'yes', 'true', '1', 'x'].includes(normalized);
+  }
+
+  function importDate(value) {
+    if (value === null || value === undefined || value === '') return '';
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+    if (typeof value === 'number') {
+      const date = XLSX.SSF.parse_date_code(value);
+      if (date) return new Date(Date.UTC(date.y, date.m - 1, date.d)).toISOString().slice(0, 10);
+    }
+    const raw = String(value).trim();
+    const match = raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+    if (match) return new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]))).toISOString().slice(0, 10);
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+  }
+
+  async function handleParticipantExcel(event) {
+    const file = event.target.files?.[0];
+    setParticipantImportError('');
+    setParticipantImportRows([]);
+    setParticipantImportFile('');
+    if (!file) return;
+    if (!participantImportChurch) {
+      setParticipantImportError('Primero selecciona la iglesia a la que pertenecen los participantes.');
+      event.target.value = '';
+      return;
+    }
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      if (!sheet) throw new Error('El archivo no contiene una hoja de cálculo.');
+      const sourceRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+      if (!sourceRows.length) throw new Error('La primera hoja está vacía o no contiene filas de datos.');
+      const existingNames = new Set(participants.map((p) => p.nombre_completo.trim().toLocaleLowerCase()));
+      const seenNames = new Set();
+      const parsedRows = sourceRows.map((source, index) => {
+        const values = {};
+        Object.entries(source).forEach(([key, value]) => { values[normalizeImportHeader(key)] = value; });
+        const pick = (...keys) => {
+          for (const key of keys) if (values[key] !== undefined && values[key] !== '') return values[key];
+          return '';
+        };
+        const name = String(pick('nombrecompleto', 'nombre', 'nombresyapellidos', 'participante')).trim();
+        const typeRaw = String(pick('asistecomo', 'tipo', 'tipoparticipante')).trim().toLowerCase();
+        const type = ['joven', 'j'].includes(typeRaw) ? 'joven' : ['servidor', 's'].includes(typeRaw) ? 'servidor' : '';
+        const sexRaw = String(pick('sexo', 'genero')).trim().toLowerCase();
+        const sex = ['f', 'femenino', 'mujer'].includes(sexRaw) ? 'F' : ['m', 'masculino', 'hombre'].includes(sexRaw) ? 'M' : '';
+        const birthValue = pick('fechadenacimiento', 'nacimiento', 'fecha');
+        const birth = importDate(birthValue);
+        const duplicateExisting = Boolean(name) && existingNames.has(name.toLocaleLowerCase());
+        const duplicateFile = Boolean(name) && seenNames.has(name.toLocaleLowerCase());
+        if (name) seenNames.add(name.toLocaleLowerCase());
+        const errors = [];
+        if (!name) errors.push('Falta el nombre completo');
+        if (!type) errors.push('Asiste como debe ser Joven o Servidor');
+        if (!sex) errors.push('Sexo debe ser F o M');
+        if (birthValue && !birth) errors.push('Fecha de nacimiento no válida');
+        return {
+          rowNumber: index + 2,
+          nombre_completo: name,
+          iglesia_id: participantImportChurch,
+          tipo_participante: type,
+          fecha_nacimiento: birth || null,
+          sexo: sex,
+          telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
+          necesita_libro: importBoolean(pick('necesitalibro', 'libro')),
+          dieta_especial: String(pick('dietaespecial', 'dietapor salud', 'restriccionalimentaria')).trim() || null,
+          formulario_directrices_firmado: importBoolean(pick('formulariodirectricesfirmado', 'directricesfirmadas', 'firmodirectrices')),
+          duplicate: duplicateExisting || duplicateFile,
+          duplicateReason: duplicateExisting ? 'Ya existe en el registro' : duplicateFile ? 'Repetido en el mismo archivo' : '',
+          errors,
+        };
+      });
+      setParticipantImportRows(parsedRows);
+      setParticipantImportFile(file.name);
+      if (!parsedRows.some((row) => !row.duplicate && row.errors.length === 0)) {
+        setParticipantImportError('No hay filas listas para importar. Revisa los datos y los posibles duplicados.');
+      }
+    } catch (err) {
+      setParticipantImportError(err.message || 'No se pudo leer el archivo Excel. Verifica que sea .xlsx o .xls.');
+    }
+    event.target.value = '';
+  }
+
+  async function handleImportParticipants() {
+    const readyRows = participantImportRows.filter((row) => !row.duplicate && row.errors.length === 0);
+    if (!readyRows.length) return;
+    setParticipantImporting(true);
+    setParticipantImportError('');
+    const records = readyRows.map(({ rowNumber, duplicate, duplicateReason, errors, ...record }) => record);
+    const { error: insertError } = await supabase.from('participantes').insert(records);
+    if (insertError) {
+      setParticipantImportError('No se pudieron importar los participantes. No se confirmó la carga; revisa los datos e inténtalo nuevamente.');
+    } else {
+      setParticipantImportRows([]);
+      setParticipantImportFile('');
+      await loadParticipants();
+    }
+    setParticipantImporting(false);
   }
 
   async function handleSaveParticipantChanges(event) {
@@ -966,6 +1080,55 @@ export default function App() {
             </div>
           ) : (
             <>
+              <section className="church-form participant-form participant-import">
+                <p className="eyebrow">IMPORTACIÓN DESDE EXCEL</p>
+                <h3>Cargar participantes por iglesia</h3>
+                <p className="work-intro">Selecciona la iglesia y carga su archivo .xlsx o .xls. Revisaremos los datos antes de guardar.</p>
+                <div className="participant-fields">
+                  <div className="participant-field">
+                    <label htmlFor="participant-import-church">Iglesia *</label>
+                    <select id="participant-import-church" value={participantImportChurch} onChange={(event) => { setParticipantImportChurch(event.target.value); setParticipantImportRows([]); setParticipantImportFile(''); setParticipantImportError(''); }} required>
+                      <option value="">Seleccionar iglesia</option>
+                      {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-excel">Archivo Excel *</label>
+                    <input id="participant-excel" type="file" accept=".xlsx,.xls" onChange={handleParticipantExcel} disabled={!participantImportChurch || participantImporting} />
+                  </div>
+                </div>
+                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven/Servidor) y Sexo (F/M). Opcionales: Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
+                {participantImportFile && <p className="field-hint">Archivo: {participantImportFile}</p>}
+                {participantImportError && <p className="auth-error" role="alert">{participantImportError}</p>}
+                {participantImportRows.length > 0 && (
+                  <div className="participant-import-preview">
+                    <div className="enrollment-selection-heading">
+                      <strong>Vista previa: {participantImportRows.length} filas</strong>
+                      <span>{participantImportRows.filter((row) => !row.duplicate && row.errors.length === 0).length} listas para importar</span>
+                    </div>
+                    <div className="participant-list">
+                      {participantImportRows.map((row) => (
+                        <article className="participant-row" key={row.rowNumber}>
+                          <div className="participant-info">
+                            <strong>Fila {row.rowNumber}: {row.nombre_completo || 'Sin nombre'}</strong>
+                            <span>{row.tipo_participante === 'servidor' ? 'Servidor' : row.tipo_participante === 'joven' ? 'Joven' : 'Tipo pendiente'} · {row.sexo || 'Sexo pendiente'}</span>
+                            {row.duplicate && <span className="status-inactive">{row.duplicateReason} — se omitirá</span>}
+                            {row.errors.map((message) => <span className="status-inactive" key={message}>{message}</span>)}
+                          </div>
+                          <span className={row.duplicate || row.errors.length ? 'status-inactive' : 'status-active'}>{row.duplicate ? 'Duplicado' : row.errors.length ? 'Revisar' : 'Lista'}</span>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="participant-submit">
+                      <button className="primary-button" type="button" onClick={handleImportParticipants} disabled={participantImporting || !participantImportRows.some((row) => !row.duplicate && row.errors.length === 0)}>
+                        {participantImporting ? 'Importando…' : 'Importar participantes listos'}
+                      </button>
+                      <button className="text-button" type="button" onClick={() => { setParticipantImportRows([]); setParticipantImportFile(''); setParticipantImportError(''); }}>Cancelar importación</button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
               <form className="church-form participant-form" onSubmit={handleAddParticipant}>
                 <label htmlFor="participant-name">Agregar participante</label>
                 <div className="participant-fields">
