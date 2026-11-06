@@ -242,3 +242,19 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .cycle-closure-actions { align-items: stretch; flex-direction: column-reverse; }
   .cycle-closure-actions .primary-button { width: 100%; }
 }
+
+
+/* Disponibilidad por día para Mensajeros y Cocina */
+.enrollment-choice { flex-wrap: wrap; }
+.enrollment-support-days { width: 100%; margin: 2px 0 8px 27px; padding: 12px 14px; border: 1px solid #e5ebe4; border-radius: 9px; background: #fbfcfa; }
+.enrollment-support-days > strong { display: block; margin-bottom: 4px; color: #29483d; font-size: 12px; }
+.enrollment-support-days .field-hint { margin: 0 0 8px; font-size: 10px; }
+.enrollment-support-day { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid #edf0eb; }
+.enrollment-support-day-label { display: flex; align-items: center; gap: 8px; color: #46584d; font-size: 11px; text-transform: capitalize; }
+.enrollment-support-day-label input { width: 15px; height: 15px; accent-color: #245b4d; }
+.enrollment-support-day select { width: min(180px, 48%); min-height: 34px; padding: 5px 8px; border: 1px solid #dce5dc; border-radius: 7px; background: #fff; color: #29483d; font-size: 11px; }
+@media (max-width: 640px) {
+  .enrollment-support-days { margin-left: 0; }
+  .enrollment-support-day { align-items: flex-start; flex-direction: column; }
+  .enrollment-support-day select { width: 100%; }
+}
