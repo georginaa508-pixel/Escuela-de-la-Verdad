@@ -599,7 +599,7 @@ export default function App() {
                   <div className="enrollment-main">
                     <strong>{enrollment.participante}</strong>
                     <span>{enrollment.codigo ? `${enrollment.codigo} · ` : ''}{enrollment.iglesia || 'Sin iglesia asignada'}</span>
-                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.nivel} · {enrollment.estado.replace('_', ' ')}</span>
+                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.nivel} · {(enrollment.estado || 'inscrito').replace('_', ' ')}</span>
                   </div>
                   <div className="enrollment-participation">
                     <label htmlFor={`participation-${enrollment.id}`}>Participación al cierre</label>
