@@ -1122,7 +1122,7 @@ export default function App() {
                     <div className="participant-field">
                       <label htmlFor="edit-participant-type">Asiste como *</label>
                       <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, tipo_participante: event.target.value })} required>
-                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
+                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                       </select>
                     </div>
                     <div className="participant-field">
@@ -1270,7 +1270,7 @@ export default function App() {
                   <div className="participant-field">
                     <label htmlFor="participant-type">Asiste como *</label>
                     <select id="participant-type" value={participantType} onChange={(event) => setParticipantType(event.target.value)} required>
-                      <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
+                      <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                     </select>
                   </div>
                   <div className="participant-field">
