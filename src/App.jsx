@@ -921,7 +921,7 @@ export default function App() {
                             />
                             <span>
                               <strong>{participant.nombre_completo}</strong>
-                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : previousEnrollment ? (type === 'servidor' ? 'Servidor · nivel a elegir' : `Joven · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}`) : `${type === 'servidor' ? 'Servidor' : type === 'joven' ? 'Joven' : 'Clasificación pendiente'} · confirmar nivel inicial`}</small>
+                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : ['mensajero', 'cocina'].includes(type) ? `${type === 'mensajero' ? 'Mensajero' : 'Cocina'} · sin nivel` : previousEnrollment ? (type === 'servidor' ? 'Servidor · nivel a elegir' : type === 'entrenante' ? `Entrenante · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}` : `Joven · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}`) : `${({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante' })[type] || 'Clasificación pendiente'} · confirmar nivel inicial`}</small>
                             </span>
                           </label>
                           {isSelected && ['mensajero', 'cocina'].includes(type) && (
@@ -1122,7 +1122,7 @@ export default function App() {
                     <div className="participant-field">
                       <label htmlFor="edit-participant-type">Asiste como *</label>
                       <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, tipo_participante: event.target.value })} required>
-                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
+                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                       </select>
                     </div>
                     <div className="participant-field">
@@ -1342,7 +1342,7 @@ export default function App() {
                       <div className="participant-info">
                         <strong>{participant.nombre_completo}</strong>
                         <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                        <span>{participant.tipo_participante === 'servidor' ? 'Servidor' : participant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}{participant.anio_escolar ? ` · ${participant.anio_escolar}` : ''}</span>
+                        <span>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[participant.tipo_participante] || 'Pendiente de selección'}{participant.anio_escolar ? ` · ${participant.anio_escolar}` : ''}</span>
                         {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                         <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                       </div>
