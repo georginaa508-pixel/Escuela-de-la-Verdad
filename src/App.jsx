@@ -504,6 +504,7 @@ export default function App() {
     if (!raw) return null;
     const normalized = normalizeImportHeader(raw);
     const options = {
+      '6': 'Sexto', '6to': 'Sexto', sexto: 'Sexto',
       '7': 'Séptimo', '7mo': 'Séptimo', septimo: 'Séptimo',
       '8': 'Octavo', '8vo': 'Octavo', octavo: 'Octavo',
       '9': 'Noveno', '9no': 'Noveno', noveno: 'Noveno',
@@ -511,6 +512,8 @@ export default function App() {
       '11': 'Undécimo', '11vo': 'Undécimo', undecimo: 'Undécimo',
       '12': 'Duodécimo', '12vo': 'Duodécimo', duodecimo: 'Duodécimo',
       universidad: 'Universidad',
+      graduado: 'Graduado',
+      etc: 'ETC',
     };
     return options[normalized] || raw;
   }
@@ -1050,7 +1053,7 @@ export default function App() {
                     <div className="participant-field">
                       <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
                       <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
-                        <option value="">Seleccionar</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option>
+                        <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
                       </select>
                     </div>
                     <div className="participant-field">
@@ -1137,7 +1140,7 @@ export default function App() {
                     <input id="participant-excel" type="file" accept=".xlsx,.xls" onChange={handleParticipantExcel} disabled={!participantImportChurch || participantImporting} />
                   </div>
                 </div>
-                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven/Servidor) y Sexo (F/M). Opcionales: Sistema educativo (Nacional/Americano), Año escolar (último completado: Séptimo a Duodécimo o Universidad), Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
+                <p className="enrollment-note">Columnas necesarias: Nombre completo, Asiste como (Joven/Servidor) y Sexo (F/M). Opcionales: Sistema educativo (Nacional/Americano), Año escolar (último completado: Sexto a Duodécimo, Universidad, Graduado o ETC), Fecha de nacimiento, Teléfono, Necesita libro, Dieta especial y Formulario de directrices firmado. Se usa la primera hoja del archivo.</p>
                 {participantImportFile && <p className="field-hint">Archivo: {participantImportFile}</p>}
                 {participantImportError && <p className="auth-error" role="alert">{participantImportError}</p>}
                 {participantImportRows.length > 0 && (
@@ -1198,7 +1201,7 @@ export default function App() {
                   <div className="participant-field">
                     <label htmlFor="participant-school-year">Año escolar (último completado)</label>
                     <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
-                      <option value="">Seleccionar</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option>
+                      <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
                     </select>
                   </div>
                   <div className="participant-field">
