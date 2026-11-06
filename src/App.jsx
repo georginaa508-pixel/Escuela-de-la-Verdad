@@ -49,6 +49,7 @@ export default function App() {
   const [participantGuardianPhone, setParticipantGuardianPhone] = useState('');
   const [participantNeedsBook, setParticipantNeedsBook] = useState('false');
   const [participantDiet, setParticipantDiet] = useState('');
+  const [participantGuidelinesSigned, setParticipantGuidelinesSigned] = useState('false');
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [savingParticipant, setSavingParticipant] = useState(false);
 
@@ -137,7 +138,7 @@ export default function App() {
     setParticipantError('');
     const [{ data: participantData, error: participantQueryError }, { data: churchData, error: churchQueryError }] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, nombre_encargado, telefono_encargado, necesita_libro, dieta_especial, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, nombre_encargado, telefono_encargado, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -187,6 +188,7 @@ export default function App() {
         telefono_encargado: participantGuardianPhone.trim() || null,
         necesita_libro: participantNeedsBook === 'true',
         dieta_especial: participantDiet.trim() || null,
+        formulario_directrices_firmado: participantGuidelinesSigned === 'true',
         activo: true,
       });
 
@@ -205,6 +207,7 @@ export default function App() {
       setParticipantGuardianPhone('');
       setParticipantNeedsBook('false');
       setParticipantDiet('');
+      setParticipantGuidelinesSigned('false');
       setConfirmDuplicate(false);
       await loadParticipants();
     }
@@ -431,6 +434,13 @@ export default function App() {
                 <label htmlFor="participant-diet">Dieta especial por salud (opcional)</label>
                 <input id="participant-diet" value={participantDiet} onChange={(event) => setParticipantDiet(event.target.value)} placeholder="Indica solo la restricción o alimento que debemos evitar" maxLength={300} />
               </div>
+              <div className="participant-field">
+                <label htmlFor="participant-guidelines">¿Firmó el formulario de directrices?</label>
+                <select id="participant-guidelines" value={participantGuidelinesSigned} onChange={(event) => setParticipantGuidelinesSigned(event.target.value)}>
+                  <option value="false">No</option>
+                  <option value="true">Sí</option>
+                </select>
+              </div>
             </div>
             {hasDuplicateParticipant && (
               <label className="duplicate-confirm">
@@ -457,6 +467,7 @@ export default function App() {
                     {(participant.telefono || participant.nombre_encargado || participant.telefono_encargado) && <span>{participant.telefono ? `Teléfono: ${participant.telefono}` : ''}{participant.nombre_encargado ? ` · Encargado: ${participant.nombre_encargado}` : ''}{participant.telefono_encargado ? ` · Tel. encargado: ${participant.telefono_encargado}` : ''}</span>}
                     <span>{participant.necesita_libro ? 'Necesita libro' : 'No necesita libro'}</span>
                     {participant.dieta_especial && <span>Dieta especial: {participant.dieta_especial}</span>}
+                    <span>{participant.formulario_directrices_firmado ? 'Formulario de directrices firmado' : 'Formulario de directrices pendiente'}</span>
                     <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                   </div>
                   <button className="text-button" type="button" onClick={() => handleToggleParticipant(participant)}>{participant.activo ? 'Desactivar' : 'Activar'}</button>
