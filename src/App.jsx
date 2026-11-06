@@ -32,6 +32,11 @@ export default function App() {
   const [participantName, setParticipantName] = useState('');
   const [participantCode, setParticipantCode] = useState('');
   const [participantChurch, setParticipantChurch] = useState('');
+  const [participantBirthDate, setParticipantBirthDate] = useState('');
+  const [participantSex, setParticipantSex] = useState('');
+  const [participantPhone, setParticipantPhone] = useState('');
+  const [participantGuardian, setParticipantGuardian] = useState('');
+  const [participantGuardianPhone, setParticipantGuardianPhone] = useState('');
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [savingParticipant, setSavingParticipant] = useState(false);
 
@@ -120,7 +125,7 @@ export default function App() {
     setParticipantError('');
     const [{ data: participantData, error: participantQueryError }, { data: churchData, error: churchQueryError }] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, nombre_encargado, telefono_encargado, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -163,6 +168,11 @@ export default function App() {
         nombre_completo: name,
         codigo: participantCode.trim() || null,
         iglesia_id: participantChurch || null,
+        fecha_nacimiento: participantBirthDate || null,
+        sexo: participantSex || null,
+        telefono: participantPhone.trim() || null,
+        nombre_encargado: participantGuardian.trim() || null,
+        telefono_encargado: participantGuardianPhone.trim() || null,
         activo: true,
       });
 
@@ -174,6 +184,11 @@ export default function App() {
       setParticipantName('');
       setParticipantCode('');
       setParticipantChurch('');
+      setParticipantBirthDate('');
+      setParticipantSex('');
+      setParticipantPhone('');
+      setParticipantGuardian('');
+      setParticipantGuardianPhone('');
       setConfirmDuplicate(false);
       await loadParticipants();
     }
@@ -350,7 +365,7 @@ export default function App() {
             <label htmlFor="participant-name">Agregar participante</label>
             <div className="participant-fields">
               <div className="participant-field">
-                <label htmlFor="participant-name">Nombre completo</label>
+                <label htmlFor="participant-name">Nombre completo *</label>
                 <input id="participant-name" value={participantName} onChange={(event) => { setParticipantName(event.target.value); setConfirmDuplicate(false); }} placeholder="Nombre y apellidos" maxLength={180} required />
               </div>
               <div className="participant-field">
@@ -363,6 +378,30 @@ export default function App() {
                   <option value="">Sin iglesia asignada</option>
                   {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
                 </select>
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-birth">Fecha de nacimiento</label>
+                <input id="participant-birth" type="date" value={participantBirthDate} onChange={(event) => setParticipantBirthDate(event.target.value)} max={new Date().toISOString().slice(0, 10)} />
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-sex">Sexo</label>
+                <select id="participant-sex" value={participantSex} onChange={(event) => setParticipantSex(event.target.value)}>
+                  <option value="">Sin especificar</option>
+                  <option value="Femenino">Femenino</option>
+                  <option value="Masculino">Masculino</option>
+                </select>
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-phone">Teléfono del participante</label>
+                <input id="participant-phone" type="tel" value={participantPhone} onChange={(event) => setParticipantPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-guardian">Padre, madre o encargado</label>
+                <input id="participant-guardian" value={participantGuardian} onChange={(event) => setParticipantGuardian(event.target.value)} placeholder="Nombre del encargado" maxLength={180} />
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-guardian-phone">Teléfono del encargado</label>
+                <input id="participant-guardian-phone" type="tel" value={participantGuardianPhone} onChange={(event) => setParticipantGuardianPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
               </div>
             </div>
             {hasDuplicateParticipant && (
@@ -386,6 +425,8 @@ export default function App() {
                   <div className="participant-info">
                     <strong>{participant.nombre_completo}</strong>
                     <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
+                    {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Nacimiento: ${participant.fecha_nacimiento}` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
+                    {(participant.telefono || participant.nombre_encargado || participant.telefono_encargado) && <span>{participant.telefono ? `Teléfono: ${participant.telefono}` : ''}{participant.nombre_encargado ? ` · Encargado: ${participant.nombre_encargado}` : ''}{participant.telefono_encargado ? ` · Tel. encargado: ${participant.telefono_encargado}` : ''}</span>}
                     <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                   </div>
                   <button className="text-button" type="button" onClick={() => handleToggleParticipant(participant)}>{participant.activo ? 'Desactivar' : 'Activar'}</button>
