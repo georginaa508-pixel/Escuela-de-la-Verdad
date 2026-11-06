@@ -68,6 +68,9 @@ export default function App() {
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
   const [savingParticipationId, setSavingParticipationId] = useState('');
+  const [closingCycleId, setClosingCycleId] = useState('');
+  const [closureExceptions, setClosureExceptions] = useState({});
+  const [savingCycleClosure, setSavingCycleClosure] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -366,30 +369,60 @@ export default function App() {
     setSavingEnrollment(false);
   }
 
-  async function handleSaveParticipation(enrollment) {
-    const value = participationDrafts[enrollment.id] ?? enrollment.tipo_participacion ?? '';
-    if (!value) {
-      setEnrollmentError('Selecciona el tipo de participación antes de guardar.');
+  function startCycleClosure() {
+    const currentCycleRows = enrollments.filter((item) => item.ciclo_id === enrollmentCycleId);
+    const existingExceptions = {};
+    currentCycleRows.forEach((item) => {
+      if (item.tipo_participacion && item.tipo_participacion !== 'tiempo_completo') {
+        existingExceptions[item.id] = item.tipo_participacion;
+      }
+    });
+    setClosureExceptions(existingExceptions);
+    setClosingCycleId(enrollmentCycleId);
+    setEnrollmentError('');
+  }
+
+  async function handleSaveCycleClosure() {
+    const cycleRows = enrollments.filter((item) => item.ciclo_id === closingCycleId);
+    if (cycleRows.length === 0) {
+      setEnrollmentError('Este ciclo no tiene inscripciones para cerrar.');
       return;
     }
-    setSavingParticipationId(enrollment.id);
+    setSavingCycleClosure(true);
     setEnrollmentError('');
-    const { error: updateError } = await supabase
+    const { error: defaultError } = await supabase
       .from('inscripciones')
-      .update({ tipo_participacion: value })
-      .eq('id', enrollment.id);
+      .update({ tipo_participacion: 'tiempo_completo' })
+      .eq('ciclo_id', closingCycleId);
 
-    if (updateError) {
-      setEnrollmentError('No se pudo guardar la participación. Verifica los permisos e inténtalo de nuevo.');
-    } else {
-      setParticipationDrafts((current) => {
-        const next = { ...current };
-        delete next[enrollment.id];
-        return next;
-      });
-      await loadEnrollments();
+    if (defaultError) {
+      setEnrollmentError('No se pudo guardar el cierre del ciclo. No se confirmó ningún cambio; inténtalo de nuevo.');
+      setSavingCycleClosure(false);
+      return;
     }
-    setSavingParticipationId('');
+
+    const exceptionGroups = ['medio_tiempo', 'no_asistio'];
+    for (const status of exceptionGroups) {
+      const ids = Object.entries(closureExceptions)
+        .filter(([, value]) => value === status)
+        .map(([id]) => id);
+      if (ids.length === 0) continue;
+      const { error: exceptionError } = await supabase
+        .from('inscripciones')
+        .update({ tipo_participacion: status })
+        .in('id', ids);
+      if (exceptionError) {
+        setEnrollmentError('El ciclo quedó marcado inicialmente como tiempo completo, pero no se pudieron guardar todas las excepciones. Tus selecciones siguen aquí; vuelve a guardar para completar el cierre.');
+        setSavingCycleClosure(false);
+        return;
+      }
+    }
+
+    setClosingCycleId('');
+    setClosureExceptions({});
+    setParticipationDrafts({});
+    await loadEnrollments();
+    setSavingCycleClosure(false);
   }
 
   const hasDuplicateParticipant = participantName.trim() && participants.some(
@@ -739,6 +772,69 @@ export default function App() {
           </form>
 
           {enrollmentError && <p className="auth-error" role="alert">{enrollmentError}</p>}
+          {enrollmentCycleId && enrollments.some((item) => item.ciclo_id === enrollmentCycleId) && (
+            <section className="cycle-closure">
+              <div className="cycle-closure-heading">
+                <div>
+                  <p className="eyebrow">CIERRE DE PARTICIPACIÓN</p>
+                  <strong>{closingCycleId ? 'Revisar excepciones del ciclo' : 'Cierre grupal del ciclo'}</strong>
+                  <p>Jóvenes y servidores se consideran de tiempo completo, excepto quienes marques aquí.</p>
+                </div>
+                {!closingCycleId && <button className="primary-button" type="button" onClick={startCycleClosure}>Cerrar ciclo</button>}
+              </div>
+              {closingCycleId && (
+                <>
+                  <div className="cycle-closure-summary">
+                    <span><strong>{enrollments.filter((item) => item.ciclo_id === closingCycleId).length - Object.keys(closureExceptions).length}</strong> tiempo completo</span>
+                    <span><strong>{Object.keys(closureExceptions).length}</strong> excepciones</span>
+                  </div>
+                  <div className="cycle-exception-list">
+                    {enrollments.filter((item) => item.ciclo_id === closingCycleId).map((item) => {
+                      const exceptionValue = closureExceptions[item.id] || '';
+                      return (
+                        <div className="cycle-exception-row" key={item.id}>
+                          <div className="cycle-exception-person">
+                            <strong>{item.participante}</strong>
+                            <small>{item.tipo_inscripcion === 'servidor' ? 'Servidor' : 'Joven'} · {item.iglesia || 'Sin iglesia asignada'}</small>
+                          </div>
+                          <label className="cycle-exception-toggle">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(exceptionValue)}
+                              onChange={(event) => setClosureExceptions((current) => {
+                                const next = { ...current };
+                                if (event.target.checked) next[item.id] = 'medio_tiempo';
+                                else delete next[item.id];
+                                return next;
+                              })}
+                            />
+                            <span>Excepción</span>
+                          </label>
+                          {exceptionValue && (
+                            <select
+                              aria-label={`Tipo de excepción para ${item.participante}`}
+                              value={exceptionValue}
+                              onChange={(event) => setClosureExceptions((current) => ({ ...current, [item.id]: event.target.value }))}
+                            >
+                              <option value="medio_tiempo">Medio tiempo</option>
+                              <option value="no_asistio">No asistió</option>
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="cycle-closure-actions">
+                    <button className="text-button" type="button" onClick={() => { setClosingCycleId(''); setClosureExceptions({}); }} disabled={savingCycleClosure}>Cancelar</button>
+                    <button className="primary-button" type="button" onClick={handleSaveCycleClosure} disabled={savingCycleClosure}>
+                      {savingCycleClosure ? 'Guardando cierre…' : 'Confirmar cierre del ciclo'}
+                    </button>
+                  </div>
+                  <p className="enrollment-note">Al confirmar, todas las inscripciones del ciclo quedarán inicialmente como tiempo completo y se aplicarán las excepciones que marcaste. Esto incluye jóvenes y servidores.</p>
+                </>
+              )}
+            </section>
+          )}
           <div className="enrollment-list">
             {enrollmentsLoading ? <p className="empty-state">Cargando inscripciones…</p> : enrollments.length === 0 ? (
               <div className="empty-state"><strong>Aún no hay inscripciones registradas.</strong><span>Cuando registres una, aparecerá aquí.</span></div>
@@ -748,17 +844,7 @@ export default function App() {
                   <div className="enrollment-main">
                     <strong>{enrollment.participante}</strong>
                     <span>{enrollment.codigo ? `${enrollment.codigo} · ` : ''}{enrollment.iglesia || 'Sin iglesia asignada'}</span>
-                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.tipo_inscripcion === 'servidor' ? 'Servidor' : 'Joven'} · {enrollment.nivel} · {(enrollment.estado || 'inscrito').replace('_', ' ')}</span>
-                  </div>
-                  <div className="enrollment-participation">
-                    <label htmlFor={`participation-${enrollment.id}`}>Participación al cierre</label>
-                    <select id={`participation-${enrollment.id}`} value={participationDrafts[enrollment.id] ?? enrollment.tipo_participacion ?? ''} onChange={(event) => setParticipationDrafts((current) => ({ ...current, [enrollment.id]: event.target.value }))}>
-                      <option value="">Pendiente de cierre</option>
-                      <option value="tiempo_completo">Tiempo completo</option>
-                      <option value="medio_tiempo">Medio tiempo</option>
-                      <option value="no_asistio">No asistió</option>
-                    </select>
-                    <button className="text-button" type="button" onClick={() => handleSaveParticipation(enrollment)} disabled={savingParticipationId === enrollment.id || !(participationDrafts[enrollment.id] ?? enrollment.tipo_participacion)}>{savingParticipationId === enrollment.id ? 'Guardando…' : 'Guardar participación'}</button>
+                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.tipo_inscripcion === 'servidor' ? 'Servidor' : 'Joven'} · {enrollment.nivel} · {(enrollment.estado || 'inscrito').replace('_', ' ')} · {enrollment.tipo_participacion === 'tiempo_completo' ? 'Tiempo completo' : enrollment.tipo_participacion === 'medio_tiempo' ? 'Medio tiempo' : enrollment.tipo_participacion === 'no_asistio' ? 'No asistió' : 'Pendiente de cierre'}</span>
                   </div>
                 </article>
               ))
