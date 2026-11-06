@@ -39,6 +39,7 @@ export default function App() {
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [editingParticipant, setEditingParticipant] = useState(false);
+  const [participantBeforeEdit, setParticipantBeforeEdit] = useState(null);
   const [savingParticipantChanges, setSavingParticipantChanges] = useState(false);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantError, setParticipantError] = useState('');
@@ -234,6 +235,7 @@ export default function App() {
       const churchName = churches.find((church) => church.id === changes.iglesia_id)?.nombre
         ?? (changes.iglesia_id === selectedParticipant.iglesia_id ? selectedParticipant.iglesia : '');
       setSelectedParticipant({ ...selectedParticipant, ...changes, iglesia: churchName });
+      setParticipantBeforeEdit(null);
       setEditingParticipant(false);
       await loadParticipants();
     }
@@ -418,7 +420,7 @@ export default function App() {
                 <span className={selectedParticipant.activo ? 'status-active' : 'status-inactive'}>{selectedParticipant.activo ? 'Activo' : 'Inactivo'}</span>
               </div>
               <div className="profile-edit-actions">
-                {!editingParticipant && <button className="primary-button" type="button" onClick={() => { setParticipantError(''); setEditingParticipant(true); }}>Editar datos</button>}
+                {!editingParticipant && <button className="primary-button" type="button" onClick={() => { setParticipantError(''); setParticipantBeforeEdit({ ...selectedParticipant }); setEditingParticipant(true); }}>Editar datos</button>}
               </div>
               {participantError && <p className="auth-error" role="alert">{participantError}</p>}
               {editingParticipant && (
@@ -469,7 +471,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="participant-edit-buttons">
-                    <button className="text-button" type="button" onClick={() => { setEditingParticipant(false); setParticipantError(''); loadParticipants().then(() => setSelectedParticipant((current) => current)); }}>Cancelar</button>
+                    <button className="text-button" type="button" onClick={() => { setSelectedParticipant(participantBeforeEdit); setParticipantBeforeEdit(null); setEditingParticipant(false); setParticipantError(''); }}>Cancelar</button>
                     <button className="primary-button" type="submit" disabled={savingParticipantChanges || !selectedParticipant.nombre_completo?.trim() || !selectedParticipant.sexo}>{savingParticipantChanges ? 'Guardando…' : 'Guardar cambios'}</button>
                   </div>
                 </form>
