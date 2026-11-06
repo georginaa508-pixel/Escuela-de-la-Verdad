@@ -485,7 +485,7 @@ export default function App() {
   }
 
   function normalizeImportHeader(value) {
-    return String(value ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   }
 
   function importBoolean(value) {
@@ -501,7 +501,7 @@ export default function App() {
       if (date) return new Date(Date.UTC(date.y, date.m - 1, date.d)).toISOString().slice(0, 10);
     }
     const raw = String(value).trim();
-    const match = raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+    const match = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (match) return new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]))).toISOString().slice(0, 10);
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
@@ -538,7 +538,7 @@ export default function App() {
         const type = ['joven', 'j'].includes(typeRaw) ? 'joven' : ['servidor', 's'].includes(typeRaw) ? 'servidor' : '';
         const sexRaw = String(pick('sexo', 'genero')).trim().toLowerCase();
         const sex = ['f', 'femenino', 'mujer'].includes(sexRaw) ? 'F' : ['m', 'masculino', 'hombre'].includes(sexRaw) ? 'M' : '';
-        const birthValue = pick('fechadenacimiento', 'nacimiento', 'fecha');
+        const birthValue = pick('fechadenacimiento', 'nacimiento');
         const birth = importDate(birthValue);
         const duplicateExisting = Boolean(name) && existingNames.has(name.toLocaleLowerCase());
         const duplicateFile = Boolean(name) && seenNames.has(name.toLocaleLowerCase());
@@ -557,7 +557,7 @@ export default function App() {
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
           necesita_libro: importBoolean(pick('necesitalibro', 'libro')),
-          dieta_especial: String(pick('dietaespecial', 'dietapor salud', 'restriccionalimentaria')).trim() || null,
+          dieta_especial: String(pick('dietaespecial', 'restriccionalimentaria')).trim() || null,
           formulario_directrices_firmado: importBoolean(pick('formulariodirectricesfirmado', 'directricesfirmadas', 'firmodirectrices')),
           duplicate: duplicateExisting || duplicateFile,
           duplicateReason: duplicateExisting ? 'Ya existe en el registro' : duplicateFile ? 'Repetido en el mismo archivo' : '',
