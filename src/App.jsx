@@ -9,6 +9,16 @@ const modules = [
   { number: '05', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
 ];
 
+function calculateAge(dateString) {
+  if (!dateString) return null;
+  const today = new Date();
+  const birthDate = new Date(dateString + 'T00:00:00');
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDifference = today.getMonth() - birthDate.getMonth();
+  if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -382,6 +392,7 @@ export default function App() {
               <div className="participant-field">
                 <label htmlFor="participant-birth">Fecha de nacimiento</label>
                 <input id="participant-birth" type="date" value={participantBirthDate} onChange={(event) => setParticipantBirthDate(event.target.value)} max={new Date().toISOString().slice(0, 10)} />
+                {participantBirthDate && <small className="field-hint">Edad actual: {calculateAge(participantBirthDate)} años</small>}
               </div>
               <div className="participant-field">
                 <label htmlFor="participant-sex">Sexo</label>
@@ -425,7 +436,7 @@ export default function App() {
                   <div className="participant-info">
                     <strong>{participant.nombre_completo}</strong>
                     <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                    {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Nacimiento: ${participant.fecha_nacimiento}` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
+                    {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                     {(participant.telefono || participant.nombre_encargado || participant.telefono_encargado) && <span>{participant.telefono ? `Teléfono: ${participant.telefono}` : ''}{participant.nombre_encargado ? ` · Encargado: ${participant.nombre_encargado}` : ''}{participant.telefono_encargado ? ` · Tel. encargado: ${participant.telefono_encargado}` : ''}</span>}
                     <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                   </div>
