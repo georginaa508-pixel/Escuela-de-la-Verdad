@@ -53,6 +53,17 @@ export default function App() {
   const [participantGuidelinesSigned, setParticipantGuidelinesSigned] = useState('false');
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [savingParticipant, setSavingParticipant] = useState(false);
+  const [enrollmentParticipants, setEnrollmentParticipants] = useState([]);
+  const [enrollmentCycles, setEnrollmentCycles] = useState([]);
+  const [enrollmentLevels, setEnrollmentLevels] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
+  const [enrollmentError, setEnrollmentError] = useState('');
+  const [enrollmentParticipantId, setEnrollmentParticipantId] = useState('');
+  const [enrollmentCycleId, setEnrollmentCycleId] = useState('');
+  const [savingEnrollment, setSavingEnrollment] = useState(false);
+  const [participationDrafts, setParticipationDrafts] = useState({});
+  const [savingParticipationId, setSavingParticipationId] = useState('');
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -165,6 +176,148 @@ export default function App() {
       loadParticipants();
     }
   }, [activeModule, profile]);
+
+  async function loadEnrollments() {
+    setEnrollmentsLoading(true);
+    setEnrollmentError('');
+    const [
+      { data: participantData, error: participantQueryError },
+      { data: churchData, error: churchQueryError },
+      { data: cycleData, error: cycleQueryError },
+      { data: levelData, error: levelQueryError },
+      { data: enrollmentData, error: enrollmentQueryError },
+    ] = await Promise.all([
+      supabase.from('participantes')
+        .select('id, codigo, nombre_completo, iglesia_id, activo')
+        .order('nombre_completo', { ascending: true }),
+      supabase.from('iglesias').select('id, nombre'),
+      supabase.from('ciclos_escolares')
+        .select('id, anio, fecha_inicio, fecha_fin, estado')
+        .order('anio', { ascending: false }),
+      supabase.from('niveles')
+        .select('id, numero, nombre, activo')
+        .order('numero', { ascending: true }),
+      supabase.from('inscripciones')
+        .select('id, participante_id, ciclo_id, nivel_id, estado, observaciones, tipo_participacion, created_at')
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (participantQueryError || churchQueryError || cycleQueryError || levelQueryError || enrollmentQueryError) {
+      setEnrollmentError('No se pudieron consultar los datos de inscripciones. Revisa la conexión y los permisos de acceso.');
+      setEnrollmentParticipants([]);
+      setEnrollmentCycles([]);
+      setEnrollmentLevels([]);
+      setEnrollments([]);
+    } else {
+      const churchesById = new Map((churchData ?? []).map((church) => [church.id, church.nombre]));
+      const participantsWithChurch = (participantData ?? []).map((participant) => ({
+        ...participant,
+        iglesia: churchesById.get(participant.iglesia_id) || '',
+      }));
+      const cycles = cycleData ?? [];
+      const levels = levelData ?? [];
+      const rows = (enrollmentData ?? []).map((enrollment) => {
+        const participant = participantsWithChurch.find((item) => item.id === enrollment.participante_id);
+        const cycle = cycles.find((item) => item.id === enrollment.ciclo_id);
+        const level = levels.find((item) => item.id === enrollment.nivel_id);
+        return {
+          ...enrollment,
+          participante: participant?.nombre_completo || 'Participante no disponible',
+          codigo: participant?.codigo || '',
+          iglesia: participant?.iglesia || '',
+          anio: cycle?.anio ?? null,
+          nivel: level?.nombre || 'Nivel no disponible',
+          numeroNivel: level?.numero ?? null,
+        };
+      });
+      setEnrollmentParticipants(participantsWithChurch);
+      setEnrollmentCycles(cycles);
+      setEnrollmentLevels(levels);
+      setEnrollments(rows);
+      setEnrollmentCycleId((current) => current || cycles[0]?.id || '');
+    }
+    setEnrollmentsLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeModule === 'Inscripciones' && profile?.rol === 'coordinacion_general' && profile.activo) {
+      loadEnrollments();
+    }
+  }, [activeModule, profile]);
+
+  function getRecommendedLevel(participantId, cycleId) {
+    const selectedCycle = enrollmentCycles.find((cycle) => cycle.id === cycleId);
+    if (!selectedCycle) return null;
+    const previousEnrollment = enrollments
+      .filter((item) => item.participante_id === participantId && item.anio !== null && item.anio < selectedCycle.anio)
+      .sort((a, b) => b.anio - a.anio)[0];
+
+    if (!previousEnrollment) return enrollmentLevels.find((level) => level.numero === 1 && level.activo) || null;
+
+    const previousLevel = enrollmentLevels.find((level) => level.id === previousEnrollment.nivel_id);
+    const previousNumber = previousLevel?.numero ?? previousEnrollment.numeroNivel ?? 1;
+    const recommendedNumber = previousEnrollment.tipo_participacion === 'tiempo_completo'
+      ? Math.min(previousNumber + 1, 6)
+      : previousNumber;
+    return enrollmentLevels.find((level) => level.numero === recommendedNumber && level.activo)
+      || enrollmentLevels.find((level) => level.numero === recommendedNumber)
+      || null;
+  }
+
+  async function handleAddEnrollment(event) {
+    event.preventDefault();
+    const recommendedLevel = getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId);
+    if (!enrollmentParticipantId || !enrollmentCycleId || !recommendedLevel) {
+      setEnrollmentError('Selecciona un participante y un ciclo con niveles disponibles.');
+      return;
+    }
+    setSavingEnrollment(true);
+    setEnrollmentError('');
+    const { error: insertError } = await supabase
+      .from('inscripciones')
+      .insert({
+        participante_id: enrollmentParticipantId,
+        ciclo_id: enrollmentCycleId,
+        nivel_id: recommendedLevel.id,
+        estado: 'inscrito',
+      });
+
+    if (insertError) {
+      setEnrollmentError(insertError.code === '23505'
+        ? 'Este participante ya tiene una inscripción en el ciclo seleccionado.'
+        : 'No se pudo guardar la inscripción. Verifica los permisos e inténtalo de nuevo.');
+    } else {
+      setEnrollmentParticipantId('');
+      await loadEnrollments();
+    }
+    setSavingEnrollment(false);
+  }
+
+  async function handleSaveParticipation(enrollment) {
+    const value = participationDrafts[enrollment.id] ?? enrollment.tipo_participacion ?? '';
+    if (!value) {
+      setEnrollmentError('Selecciona el tipo de participación antes de guardar.');
+      return;
+    }
+    setSavingParticipationId(enrollment.id);
+    setEnrollmentError('');
+    const { error: updateError } = await supabase
+      .from('inscripciones')
+      .update({ tipo_participacion: value })
+      .eq('id', enrollment.id);
+
+    if (updateError) {
+      setEnrollmentError('No se pudo guardar la participación. Verifica los permisos e inténtalo de nuevo.');
+    } else {
+      setParticipationDrafts((current) => {
+        const next = { ...current };
+        delete next[enrollment.id];
+        return next;
+      });
+      await loadEnrollments();
+    }
+    setSavingParticipationId('');
+  }
 
   const hasDuplicateParticipant = participantName.trim() && participants.some(
     (participant) => participant.nombre_completo.trim().toLocaleLowerCase() === participantName.trim().toLocaleLowerCase()
@@ -400,6 +553,69 @@ export default function App() {
             )}
           </div>
         </section>
+      ) : activeModule === 'Inscripciones' ? (
+        <section className="work-section">
+          <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
+          <div className="section-heading">
+            <div><p className="eyebrow">REGISTRO ANUAL</p><h2>Inscripciones</h2><p className="work-intro">Registra a cada participante en el ciclo y el sistema asignará su nivel según su historial.</p></div>
+            <span className="module-count">{enrollments.length} inscritas</span>
+          </div>
+
+          <form className="church-form participant-form" onSubmit={handleAddEnrollment}>
+            <p className="eyebrow">NUEVA INSCRIPCIÓN</p>
+            <div className="participant-fields enrollment-fields">
+              <div className="participant-field">
+                <label htmlFor="enrollment-cycle">Ciclo *</label>
+                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => setEnrollmentCycleId(event.target.value)} required>
+                  <option value="">Seleccionar ciclo</option>
+                  {enrollmentCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
+                </select>
+              </div>
+              <div className="participant-field">
+                <label htmlFor="enrollment-participant">Participante *</label>
+                <select id="enrollment-participant" value={enrollmentParticipantId} onChange={(event) => setEnrollmentParticipantId(event.target.value)} required>
+                  <option value="">Seleccionar participante</option>
+                  {enrollmentParticipants.filter((participant) => participant.activo).map((participant) => <option key={participant.id} value={participant.id}>{participant.nombre_completo}{participant.codigo ? ` · ${participant.codigo}` : ''}</option>)}
+                </select>
+              </div>
+              <div className="participant-field enrollment-level-field">
+                <label>Nivel asignado automáticamente</label>
+                <div className="auto-level-value">{getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId)?.nombre || 'Se asignará al seleccionar'}</div>
+              </div>
+            </div>
+            <p className="enrollment-note">El nivel se calcula con la última inscripción de ciclos anteriores. Solo avanza si la participación anterior fue de tiempo completo; en los demás casos conserva el nivel. El primer registro comienza en Nivel 1.</p>
+            <div className="participant-submit">
+              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentParticipantId || !enrollmentCycleId || !getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId)}>{savingEnrollment ? 'Guardando…' : 'Registrar inscripción'}</button>
+            </div>
+          </form>
+
+          {enrollmentError && <p className="auth-error" role="alert">{enrollmentError}</p>}
+          <div className="enrollment-list">
+            {enrollmentsLoading ? <p className="empty-state">Cargando inscripciones…</p> : enrollments.length === 0 ? (
+              <div className="empty-state"><strong>Aún no hay inscripciones registradas.</strong><span>Cuando registres una, aparecerá aquí.</span></div>
+            ) : (
+              enrollments.map((enrollment) => (
+                <article className="enrollment-row" key={enrollment.id}>
+                  <div className="enrollment-main">
+                    <strong>{enrollment.participante}</strong>
+                    <span>{enrollment.codigo ? `${enrollment.codigo} · ` : ''}{enrollment.iglesia || 'Sin iglesia asignada'}</span>
+                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.nivel} · {enrollment.estado.replace('_', ' ')}</span>
+                  </div>
+                  <div className="enrollment-participation">
+                    <label htmlFor={`participation-${enrollment.id}`}>Participación al cierre</label>
+                    <select id={`participation-${enrollment.id}`} value={participationDrafts[enrollment.id] ?? enrollment.tipo_participacion ?? ''} onChange={(event) => setParticipationDrafts((current) => ({ ...current, [enrollment.id]: event.target.value }))}>
+                      <option value="">Pendiente de cierre</option>
+                      <option value="tiempo_completo">Tiempo completo</option>
+                      <option value="medio_tiempo">Medio tiempo</option>
+                      <option value="no_asistio">No asistió</option>
+                    </select>
+                    <button className="text-button" type="button" onClick={() => handleSaveParticipation(enrollment)} disabled={savingParticipationId === enrollment.id || !(participationDrafts[enrollment.id] ?? enrollment.tipo_participacion)}>{savingParticipationId === enrollment.id ? 'Guardando…' : 'Guardar participación'}</button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
       ) : activeModule === 'Participantes' ? (
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
@@ -610,7 +826,7 @@ export default function App() {
             </div>
             <div className="module-grid">
               {modules.map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => ['Iglesias', 'Participantes'].includes(module.title) && setActiveModule(module.title)}>
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => ['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && setActiveModule(module.title)}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
