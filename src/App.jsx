@@ -498,6 +498,7 @@ export default function App() {
     setSavingParticipant(true);
     setParticipantError('');
     const hasEducationFields = !['mensajero', 'cocina'].includes(participantType);
+    const hasBookAndGuidelines = ['joven', 'servidor'].includes(participantType);
     const { error: insertError } = await supabase
       .from('participantes')
       .insert({
@@ -509,9 +510,9 @@ export default function App() {
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
-        necesita_libro: participantNeedsBook === 'true',
+        necesita_libro: hasBookAndGuidelines && participantNeedsBook === 'true',
         dieta_especial: participantDiet.trim() || null,
-        formulario_directrices_firmado: participantGuidelinesSigned === 'true',
+        formulario_directrices_firmado: hasBookAndGuidelines && participantGuidelinesSigned === 'true',
         activo: true,
       });
 
@@ -630,9 +631,9 @@ export default function App() {
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
-          necesita_libro: importBoolean(pick('necesitalibro', 'libro')),
+          necesita_libro: ['joven', 'servidor'].includes(type) && importBoolean(pick('necesitalibro', 'libro')),
           dieta_especial: String(pick('dietaespecial', 'restriccionalimentaria')).trim() || null,
-          formulario_directrices_firmado: importBoolean(pick('formulariodirectricesfirmado', 'directricesfirmadas', 'firmodirectrices')),
+          formulario_directrices_firmado: ['joven', 'servidor'].includes(type) && importBoolean(pick('formulariodirectricesfirmado', 'directricesfirmadas', 'firmodirectrices')),
           duplicate: duplicateExisting || duplicateFile,
           duplicateReason: duplicateExisting ? 'Ya existe en el registro' : duplicateFile ? 'Repetido en el mismo archivo' : '',
           errors,
@@ -672,6 +673,7 @@ export default function App() {
     setSavingParticipantChanges(true);
     setParticipantError('');
     const hasEducationFields = !['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante);
+    const hasBookAndGuidelines = ['joven', 'servidor'].includes(selectedParticipant.tipo_participante);
     const changes = {
       nombre_completo: selectedParticipant.nombre_completo.trim(),
       iglesia_id: selectedParticipant.iglesia_id || null,
@@ -681,9 +683,9 @@ export default function App() {
       fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
       sexo: selectedParticipant.sexo,
       telefono: selectedParticipant.telefono?.trim() || null,
-      necesita_libro: Boolean(selectedParticipant.necesita_libro),
+      necesita_libro: hasBookAndGuidelines && Boolean(selectedParticipant.necesita_libro),
       dieta_especial: selectedParticipant.dieta_especial?.trim() || null,
-      formulario_directrices_firmado: Boolean(selectedParticipant.formulario_directrices_firmado),
+      formulario_directrices_firmado: hasBookAndGuidelines && Boolean(selectedParticipant.formulario_directrices_firmado),
     };
     const { error: updateError } = await supabase
       .from('participantes')
@@ -1126,11 +1128,14 @@ export default function App() {
                       <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => {
                           const nextType = event.target.value;
                           const supportType = ['mensajero', 'cocina'].includes(nextType);
+                          const showBookAndGuidelines = ['joven', 'servidor'].includes(nextType);
                           setSelectedParticipant({
                             ...selectedParticipant,
                             tipo_participante: nextType,
                             sistema_educativo: supportType ? '' : (nextType === 'joven' && selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.sistema_educativo),
                             anio_escolar: supportType || selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.anio_escolar,
+                            necesita_libro: showBookAndGuidelines ? selectedParticipant.necesita_libro : false,
+                            formulario_directrices_firmado: showBookAndGuidelines ? selectedParticipant.formulario_directrices_firmado : false,
                           });
                         }} required>
                         <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
@@ -1169,22 +1174,26 @@ export default function App() {
                       <label htmlFor="edit-participant-phone">Teléfono del participante</label>
                       <input id="edit-participant-phone" type="tel" value={selectedParticipant.telefono || ''} maxLength={30} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, telefono: event.target.value })} />
                     </div>
-                    <div className="participant-field">
-                      <label htmlFor="edit-participant-book">¿Necesita libro?</label>
-                      <select id="edit-participant-book" value={selectedParticipant.necesita_libro ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, necesita_libro: event.target.value === 'true' })}>
-                        <option value="false">No</option><option value="true">Sí</option>
-                      </select>
-                    </div>
+                    {['joven', 'servidor'].includes(selectedParticipant.tipo_participante) && (
+                      <div className="participant-field">
+                        <label htmlFor="edit-participant-book">¿Necesita libro?</label>
+                        <select id="edit-participant-book" value={selectedParticipant.necesita_libro ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, necesita_libro: event.target.value === 'true' })}>
+                          <option value="false">No</option><option value="true">Sí</option>
+                        </select>
+                      </div>
+                    )}
                     <div className="participant-field">
                       <label htmlFor="edit-participant-diet">Dieta especial por salud</label>
                       <input id="edit-participant-diet" value={selectedParticipant.dieta_especial || ''} maxLength={300} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, dieta_especial: event.target.value })} />
                     </div>
-                    <div className="participant-field">
-                      <label htmlFor="edit-participant-guidelines">¿Firmó el formulario de directrices?</label>
-                      <select id="edit-participant-guidelines" value={selectedParticipant.formulario_directrices_firmado ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, formulario_directrices_firmado: event.target.value === 'true' })}>
-                        <option value="false">No</option><option value="true">Sí</option>
-                      </select>
-                    </div>
+                    {['joven', 'servidor'].includes(selectedParticipant.tipo_participante) && (
+                      <div className="participant-field">
+                        <label htmlFor="edit-participant-guidelines">¿Firmó el formulario de directrices?</label>
+                        <select id="edit-participant-guidelines" value={selectedParticipant.formulario_directrices_firmado ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, formulario_directrices_firmado: event.target.value === 'true' })}>
+                          <option value="false">No</option><option value="true">Sí</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="participant-edit-buttons">
                     <button className="text-button" type="button" onClick={() => { setSelectedParticipant(participantBeforeEdit); setParticipantBeforeEdit(null); setEditingParticipant(false); setParticipantError(''); }}>Cancelar</button>
@@ -1296,6 +1305,10 @@ export default function App() {
                       } else if (nextType === 'joven' && participantEducationSystem === 'no_aplica') {
                         setParticipantEducationSystem('');
                       }
+                      if (!['joven', 'servidor'].includes(nextType)) {
+                        setParticipantNeedsBook('false');
+                        setParticipantGuidelinesSigned('false');
+                      }
                     }} required>
                       <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                     </select>
@@ -1336,24 +1349,28 @@ export default function App() {
                     <label htmlFor="participant-phone">Teléfono del participante</label>
                     <input id="participant-phone" type="tel" value={participantPhone} onChange={(event) => setParticipantPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
                   </div>
-                  <div className="participant-field">
-                    <label htmlFor="participant-needs-book">¿Necesita libro?</label>
-                    <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
-                      <option value="false">No</option>
-                      <option value="true">Sí</option>
-                    </select>
-                  </div>
+                  {['joven', 'servidor'].includes(participantType) && (
+                    <div className="participant-field">
+                      <label htmlFor="participant-needs-book">¿Necesita libro?</label>
+                      <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                      </select>
+                    </div>
+                  )}
                   <div className="participant-field">
                     <label htmlFor="participant-diet">Dieta especial por salud (opcional)</label>
                     <input id="participant-diet" value={participantDiet} onChange={(event) => setParticipantDiet(event.target.value)} placeholder="Indica solo la restricción o alimento que debemos evitar" maxLength={300} />
                   </div>
-                  <div className="participant-field">
-                    <label htmlFor="participant-guidelines">¿Firmó el formulario de directrices?</label>
-                    <select id="participant-guidelines" value={participantGuidelinesSigned} onChange={(event) => setParticipantGuidelinesSigned(event.target.value)}>
-                      <option value="false">No</option>
-                      <option value="true">Sí</option>
-                    </select>
-                  </div>
+                  {['joven', 'servidor'].includes(participantType) && (
+                    <div className="participant-field">
+                      <label htmlFor="participant-guidelines">¿Firmó el formulario de directrices?</label>
+                      <select id="participant-guidelines" value={participantGuidelinesSigned} onChange={(event) => setParticipantGuidelinesSigned(event.target.value)}>
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 {hasDuplicateParticipant && (
                   <label className="duplicate-confirm">
