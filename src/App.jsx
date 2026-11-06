@@ -61,6 +61,7 @@ export default function App() {
   const [enrollmentError, setEnrollmentError] = useState('');
   const [enrollmentParticipantId, setEnrollmentParticipantId] = useState('');
   const [enrollmentCycleId, setEnrollmentCycleId] = useState('');
+  const [enrollmentServerLevelId, setEnrollmentServerLevelId] = useState('');
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
   const [savingParticipationId, setSavingParticipationId] = useState('');
@@ -198,7 +199,7 @@ export default function App() {
         .select('id, numero, nombre, activo')
         .order('numero', { ascending: true }),
       supabase.from('inscripciones')
-        .select('id, participante_id, ciclo_id, nivel_id, estado, observaciones, tipo_participacion, created_at')
+        .select('id, participante_id, ciclo_id, nivel_id, estado, observaciones, tipo_inscripcion, tipo_participacion, created_at')
         .order('created_at', { ascending: false }),
     ]);
 
@@ -245,15 +246,30 @@ export default function App() {
     }
   }, [activeModule, profile]);
 
-  function getRecommendedLevel(participantId, cycleId) {
+  function getPreviousEnrollment(participantId, cycleId) {
     const selectedCycle = enrollmentCycles.find((cycle) => cycle.id === cycleId);
     if (!selectedCycle) return null;
-    const previousEnrollment = enrollments
+    return enrollments
       .filter((item) => item.participante_id === participantId && item.anio !== null && item.anio < selectedCycle.anio)
-      .sort((a, b) => b.anio - a.anio)[0];
+      .sort((a, b) => b.anio - a.anio)[0] || null;
+  }
 
-    if (!previousEnrollment) return enrollmentLevels.find((level) => level.numero === 1 && level.activo) || null;
+  function getEnrollmentType(participantId, cycleId) {
+    const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
+    if (!previousEnrollment) return 'joven';
+    if (previousEnrollment.tipo_inscripcion === 'servidor') return 'servidor';
+    const previousLevel = enrollmentLevels.find((level) => level.id === previousEnrollment.nivel_id);
+    const previousNumber = previousLevel?.numero ?? previousEnrollment.numeroNivel ?? 1;
+    return previousNumber === 6 && previousEnrollment.tipo_participacion === 'tiempo_completo'
+      ? 'servidor'
+      : 'joven';
+  }
 
+  function getRecommendedLevel(participantId, cycleId) {
+    const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
+    const firstLevel = enrollmentLevels.find((level) => level.numero === 1 && level.activo)
+      || enrollmentLevels.find((level) => level.numero === 1);
+    if (!previousEnrollment) return firstLevel;
     const previousLevel = enrollmentLevels.find((level) => level.id === previousEnrollment.nivel_id);
     const previousNumber = previousLevel?.numero ?? previousEnrollment.numeroNivel ?? 1;
     const recommendedNumber = previousEnrollment.tipo_participacion === 'tiempo_completo'
@@ -264,11 +280,21 @@ export default function App() {
       || null;
   }
 
+  function getEnrollmentLevel() {
+    if (getEnrollmentType(enrollmentParticipantId, enrollmentCycleId) === 'servidor') {
+      return enrollmentLevels.find((level) => level.id === enrollmentServerLevelId) || null;
+    }
+    return getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId);
+  }
+
   async function handleAddEnrollment(event) {
     event.preventDefault();
-    const recommendedLevel = getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId);
-    if (!enrollmentParticipantId || !enrollmentCycleId || !recommendedLevel) {
-      setEnrollmentError('Selecciona un participante y un ciclo con niveles disponibles.');
+    const tipoInscripcion = getEnrollmentType(enrollmentParticipantId, enrollmentCycleId);
+    const selectedLevel = getEnrollmentLevel();
+    if (!enrollmentParticipantId || !enrollmentCycleId || !selectedLevel) {
+      setEnrollmentError(tipoInscripcion === 'servidor'
+        ? 'Selecciona el nivel en el que servirá este año.'
+        : 'Selecciona un joven y un ciclo con niveles disponibles.');
       return;
     }
     setSavingEnrollment(true);
@@ -278,16 +304,18 @@ export default function App() {
       .insert({
         participante_id: enrollmentParticipantId,
         ciclo_id: enrollmentCycleId,
-        nivel_id: recommendedLevel.id,
+        nivel_id: selectedLevel.id,
+        tipo_inscripcion: tipoInscripcion,
         estado: 'inscrito',
       });
 
     if (insertError) {
       setEnrollmentError(insertError.code === '23505'
-        ? 'Este participante ya tiene una inscripción en el ciclo seleccionado.'
+        ? 'Esta persona ya tiene una inscripción en el ciclo seleccionado.'
         : 'No se pudo guardar la inscripción. Verifica los permisos e inténtalo de nuevo.');
     } else {
       setEnrollmentParticipantId('');
+      setEnrollmentServerLevelId('');
       await loadEnrollments();
     }
     setSavingEnrollment(false);
@@ -572,20 +600,32 @@ export default function App() {
                 </select>
               </div>
               <div className="participant-field">
-                <label htmlFor="enrollment-participant">Participante *</label>
-                <select id="enrollment-participant" value={enrollmentParticipantId} onChange={(event) => setEnrollmentParticipantId(event.target.value)} required>
-                  <option value="">Seleccionar participante</option>
+                <label htmlFor="enrollment-participant">Joven o servidor *</label>
+                <select id="enrollment-participant" value={enrollmentParticipantId} onChange={(event) => { setEnrollmentParticipantId(event.target.value); setEnrollmentServerLevelId(''); }} required>
+                  <option value="">Seleccionar persona</option>
                   {enrollmentParticipants.filter((participant) => participant.activo).map((participant) => <option key={participant.id} value={participant.id}>{participant.nombre_completo}{participant.codigo ? ` · ${participant.codigo}` : ''}</option>)}
                 </select>
               </div>
               <div className="participant-field enrollment-level-field">
-                <label>Nivel asignado automáticamente</label>
-                <div className="auto-level-value">{getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId)?.nombre || 'Se asignará al seleccionar'}</div>
+                {getEnrollmentType(enrollmentParticipantId, enrollmentCycleId) === 'servidor' ? (
+                  <>
+                    <label htmlFor="enrollment-server-level">Nivel preferido del servidor *</label>
+                    <select id="enrollment-server-level" value={enrollmentServerLevelId} onChange={(event) => setEnrollmentServerLevelId(event.target.value)} required>
+                      <option value="">Seleccionar nivel</option>
+                      {enrollmentLevels.filter((level) => level.activo).map((level) => <option key={level.id} value={level.id}>{level.nombre}</option>)}
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <label>Nivel asignado automáticamente</label>
+                    <div className="auto-level-value">{getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId)?.nombre || 'Se asignará al seleccionar'}</div>
+                  </>
+                )}
               </div>
             </div>
-            <p className="enrollment-note">El nivel se calcula con la última inscripción de ciclos anteriores. Solo avanza si la participación anterior fue de tiempo completo; en los demás casos conserva el nivel. El primer registro comienza en Nivel 1.</p>
+            <p className="enrollment-note">Los jóvenes comienzan en Nivel 1 y avanzan únicamente si completan el ciclo a tiempo completo. Al completar el Nivel 6 pasan a ser servidores. Los servidores eligen cada año cualquiera de los seis niveles.</p>
             <div className="participant-submit">
-              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentParticipantId || !enrollmentCycleId || !getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId)}>{savingEnrollment ? 'Guardando…' : 'Registrar inscripción'}</button>
+              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentParticipantId || !enrollmentCycleId || !getEnrollmentLevel()}>{savingEnrollment ? 'Guardando…' : 'Registrar inscripción'}</button>
             </div>
           </form>
 
@@ -599,7 +639,7 @@ export default function App() {
                   <div className="enrollment-main">
                     <strong>{enrollment.participante}</strong>
                     <span>{enrollment.codigo ? `${enrollment.codigo} · ` : ''}{enrollment.iglesia || 'Sin iglesia asignada'}</span>
-                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.nivel} · {(enrollment.estado || 'inscrito').replace('_', ' ')}</span>
+                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.tipo_inscripcion === 'servidor' ? 'Servidor' : 'Joven'} · {enrollment.nivel} · {(enrollment.estado || 'inscrito').replace('_', ' ')}</span>
                   </div>
                   <div className="enrollment-participation">
                     <label htmlFor={`participation-${enrollment.id}`}>Participación al cierre</label>
