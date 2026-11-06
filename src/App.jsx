@@ -158,7 +158,6 @@ export default function App() {
     const [
       { data: participantData, error: participantQueryError },
       { data: churchData, error: churchQueryError },
-      { data: enrollmentData, error: participantEnrollmentError },
     ] = await Promise.all([
       supabase.from('participantes')
         .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
@@ -166,13 +165,10 @@ export default function App() {
       supabase.from('iglesias')
         .select('id, nombre, activa')
         .order('nombre', { ascending: true }),
-      supabase.from('inscripciones')
-        .select('participante_id, tipo_inscripcion, created_at')
-        .order('created_at', { ascending: false }),
     ]);
 
-    if (participantQueryError || churchQueryError || participantEnrollmentError) {
-      setParticipantError('No se pudieron consultar los participantes, las iglesias o su clasificación. Revisa la conexión y los permisos de acceso.');
+    if (participantQueryError || churchQueryError) {
+      setParticipantError('No se pudieron consultar los participantes o las iglesias. Revisa la conexión y los permisos de acceso.');
       setParticipants([]);
       if (!churchQueryError) setChurches(churchData ?? []);
     } else {
@@ -864,7 +860,7 @@ export default function App() {
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
           <div className="section-heading">
-            <div><p className="eyebrow">REGISTRO GENERAL</p><h2>Participantes</h2><p className="work-intro">Registra a cada estudiante una sola vez y vincúlalo con su iglesia.</p></div>
+            <div><p className="eyebrow">REGISTRO GENERAL</p><h2>Participantes</h2><p className="work-intro">Registra a cada joven o servidor una sola vez y vincúlalo con su iglesia.</p></div>
             <span className="module-count">{participants.length} registrados</span>
           </div>
 
