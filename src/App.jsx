@@ -47,6 +47,8 @@ export default function App() {
   const [participantPhone, setParticipantPhone] = useState('');
   const [participantGuardian, setParticipantGuardian] = useState('');
   const [participantGuardianPhone, setParticipantGuardianPhone] = useState('');
+  const [participantNeedsBook, setParticipantNeedsBook] = useState('false');
+  const [participantDiet, setParticipantDiet] = useState('');
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [savingParticipant, setSavingParticipant] = useState(false);
 
@@ -135,7 +137,7 @@ export default function App() {
     setParticipantError('');
     const [{ data: participantData, error: participantQueryError }, { data: churchData, error: churchQueryError }] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, nombre_encargado, telefono_encargado, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, nombre_encargado, telefono_encargado, necesita_libro, dieta_especial, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -183,6 +185,8 @@ export default function App() {
         telefono: participantPhone.trim() || null,
         nombre_encargado: participantGuardian.trim() || null,
         telefono_encargado: participantGuardianPhone.trim() || null,
+        necesita_libro: participantNeedsBook === 'true',
+        dieta_especial: participantDiet.trim() || null,
         activo: true,
       });
 
@@ -199,6 +203,8 @@ export default function App() {
       setParticipantPhone('');
       setParticipantGuardian('');
       setParticipantGuardianPhone('');
+      setParticipantNeedsBook('false');
+      setParticipantDiet('');
       setConfirmDuplicate(false);
       await loadParticipants();
     }
@@ -414,6 +420,17 @@ export default function App() {
                 <label htmlFor="participant-guardian-phone">Teléfono del encargado</label>
                 <input id="participant-guardian-phone" type="tel" value={participantGuardianPhone} onChange={(event) => setParticipantGuardianPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
               </div>
+              <div className="participant-field">
+                <label htmlFor="participant-needs-book">¿Necesita libro?</label>
+                <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
+                  <option value="false">No</option>
+                  <option value="true">Sí</option>
+                </select>
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-diet">Dieta especial por salud (opcional)</label>
+                <input id="participant-diet" value={participantDiet} onChange={(event) => setParticipantDiet(event.target.value)} placeholder="Indica solo la restricción o alimento que debemos evitar" maxLength={300} />
+              </div>
             </div>
             {hasDuplicateParticipant && (
               <label className="duplicate-confirm">
@@ -438,6 +455,8 @@ export default function App() {
                     <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
                     {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                     {(participant.telefono || participant.nombre_encargado || participant.telefono_encargado) && <span>{participant.telefono ? `Teléfono: ${participant.telefono}` : ''}{participant.nombre_encargado ? ` · Encargado: ${participant.nombre_encargado}` : ''}{participant.telefono_encargado ? ` · Tel. encargado: ${participant.telefono_encargado}` : ''}</span>}
+                    <span>{participant.necesita_libro ? 'Necesita libro' : 'No necesita libro'}</span>
+                    {participant.dieta_especial && <span>Dieta especial: {participant.dieta_especial}</span>}
                     <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                   </div>
                   <button className="text-button" type="button" onClick={() => handleToggleParticipant(participant)}>{participant.activo ? 'Desactivar' : 'Activar'}</button>
