@@ -152,23 +152,37 @@ export default function App() {
   async function loadParticipants() {
     setParticipantsLoading(true);
     setParticipantError('');
-    const [{ data: participantData, error: participantQueryError }, { data: churchData, error: churchQueryError }] = await Promise.all([
+    const [
+      { data: participantData, error: participantQueryError },
+      { data: churchData, error: churchQueryError },
+      { data: enrollmentData, error: participantEnrollmentError },
+    ] = await Promise.all([
       supabase.from('participantes')
         .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
         .order('nombre', { ascending: true }),
+      supabase.from('inscripciones')
+        .select('participante_id, tipo_inscripcion, created_at')
+        .order('created_at', { ascending: false }),
     ]);
 
-    if (participantQueryError || churchQueryError) {
-      setParticipantError('No se pudieron consultar los participantes o las iglesias. Revisa la conexión y los permisos de acceso.');
+    if (participantQueryError || churchQueryError || participantEnrollmentError) {
+      setParticipantError('No se pudieron consultar los participantes, las iglesias o su clasificación. Revisa la conexión y los permisos de acceso.');
       setParticipants([]);
       if (!churchQueryError) setChurches(churchData ?? []);
     } else {
+      const latestTypeByParticipant = new Map();
+      (enrollmentData ?? []).forEach((enrollment) => {
+        if (!latestTypeByParticipant.has(enrollment.participante_id)) {
+          latestTypeByParticipant.set(enrollment.participante_id, enrollment.tipo_inscripcion);
+        }
+      });
       setParticipants((participantData ?? []).map((participant) => ({
         ...participant,
         iglesia: (churchData ?? []).find((church) => church.id === participant.iglesia_id)?.nombre ?? '',
+        tipoParticipante: latestTypeByParticipant.get(participant.id) || '',
       })));
       setChurches((churchData ?? []).filter((church) => church.activa));
     }
@@ -834,6 +848,7 @@ export default function App() {
                     <div><dt>Fecha de nacimiento</dt><dd>{selectedParticipant.fecha_nacimiento ? new Date(selectedParticipant.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-HN') : 'No registrada'}</dd></div>
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
+                    <div><dt>Clasificación actual</dt><dd>{selectedParticipant.tipoParticipante === 'servidor' ? 'Servidor' : selectedParticipant.tipoParticipante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</dd></div>
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
                   </dl>
                 </article>
@@ -925,6 +940,7 @@ export default function App() {
                       <div className="participant-info">
                         <strong>{participant.nombre_completo}</strong>
                         <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
+                        <span>{participant.tipoParticipante === 'servidor' ? 'Servidor' : participant.tipoParticipante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</span>
                         {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                         <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                       </div>
