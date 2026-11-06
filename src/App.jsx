@@ -44,7 +44,6 @@ export default function App() {
   const [participantBirthDate, setParticipantBirthDate] = useState('');
   const [participantSex, setParticipantSex] = useState('');
   const [participantPhone, setParticipantPhone] = useState('');
-  const [participantGuardianPhone, setParticipantGuardianPhone] = useState('');
   const [participantNeedsBook, setParticipantNeedsBook] = useState('false');
   const [participantDiet, setParticipantDiet] = useState('');
   const [participantGuidelinesSigned, setParticipantGuidelinesSigned] = useState('false');
@@ -136,7 +135,7 @@ export default function App() {
     setParticipantError('');
     const [{ data: participantData, error: participantQueryError }, { data: churchData, error: churchQueryError }] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, telefono_encargado, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -181,7 +180,6 @@ export default function App() {
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
-        telefono_encargado: participantGuardianPhone.trim() || null,
         necesita_libro: participantNeedsBook === 'true',
         dieta_especial: participantDiet.trim() || null,
         formulario_directrices_firmado: participantGuidelinesSigned === 'true',
@@ -198,7 +196,6 @@ export default function App() {
       setParticipantBirthDate('');
       setParticipantSex('');
       setParticipantPhone('');
-      setParticipantGuardianPhone('');
       setParticipantNeedsBook('false');
       setParticipantDiet('');
       setParticipantGuidelinesSigned('false');
@@ -407,10 +404,6 @@ export default function App() {
               </div>
 
               <div className="participant-field">
-                <label htmlFor="participant-guardian-phone">Teléfono del encargado</label>
-                <input id="participant-guardian-phone" type="tel" value={participantGuardianPhone} onChange={(event) => setParticipantGuardianPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
-              </div>
-              <div className="participant-field">
                 <label htmlFor="participant-needs-book">¿Necesita libro?</label>
                 <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
                   <option value="false">No</option>
@@ -451,7 +444,7 @@ export default function App() {
                     <strong>{participant.nombre_completo}</strong>
                     <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
                     {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
-                    {(participant.telefono || participant.telefono_encargado) && <span>{participant.telefono ? `Teléfono: ${participant.telefono}` : ''}{participant.telefono && participant.telefono_encargado ? ' · ' : ''}{participant.telefono_encargado ? `Tel. encargado: ${participant.telefono_encargado}` : ''}</span>}
+                    {participant.telefono && <span>Teléfono: {participant.telefono}</span>}
                     <span>{participant.necesita_libro ? 'Necesita libro' : 'No necesita libro'}</span>
                     {participant.dieta_especial && <span>Dieta especial: {participant.dieta_especial}</span>}
                     <span>{participant.formulario_directrices_firmado ? 'Formulario de directrices firmado' : 'Formulario de directrices pendiente'}</span>
