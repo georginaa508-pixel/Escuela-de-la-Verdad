@@ -497,14 +497,15 @@ export default function App() {
     if (!name || !participantSex || !participantType || (hasDuplicateParticipant && !confirmDuplicate)) return;
     setSavingParticipant(true);
     setParticipantError('');
+    const hasEducationFields = !['mensajero', 'cocina'].includes(participantType);
     const { error: insertError } = await supabase
       .from('participantes')
       .insert({
         nombre_completo: name,
         iglesia_id: participantChurch || null,
         tipo_participante: participantType,
-        sistema_educativo: participantEducationSystem || null,
-        anio_escolar: participantSchoolYear || null,
+        sistema_educativo: hasEducationFields ? (participantEducationSystem || null) : null,
+        anio_escolar: hasEducationFields && participantEducationSystem !== 'no_aplica' ? (participantSchoolYear || null) : null,
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
@@ -624,7 +625,7 @@ export default function App() {
           nombre_completo: name,
           iglesia_id: participantImportChurch,
           tipo_participante: type,
-          sistema_educativo: String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : null,
+          sistema_educativo: String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? 'no_aplica' : null,
           anio_escolar: importSchoolYear(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')),
           fecha_nacimiento: birth || null,
           sexo: sex,
@@ -670,12 +671,13 @@ export default function App() {
     if (!selectedParticipant?.nombre_completo?.trim() || !selectedParticipant?.sexo || !selectedParticipant?.tipo_participante) return;
     setSavingParticipantChanges(true);
     setParticipantError('');
+    const hasEducationFields = !['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante);
     const changes = {
       nombre_completo: selectedParticipant.nombre_completo.trim(),
       iglesia_id: selectedParticipant.iglesia_id || null,
       tipo_participante: selectedParticipant.tipo_participante,
-      sistema_educativo: selectedParticipant.sistema_educativo || null,
-      anio_escolar: selectedParticipant.anio_escolar || null,
+      sistema_educativo: hasEducationFields ? (selectedParticipant.sistema_educativo || null) : null,
+      anio_escolar: hasEducationFields && selectedParticipant.sistema_educativo !== 'no_aplica' ? (selectedParticipant.anio_escolar || null) : null,
       fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
       sexo: selectedParticipant.sexo,
       telefono: selectedParticipant.telefono?.trim() || null,
@@ -1121,22 +1123,38 @@ export default function App() {
                     </div>
                     <div className="participant-field">
                       <label htmlFor="edit-participant-type">Asiste como *</label>
-                      <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, tipo_participante: event.target.value })} required>
+                      <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => {
+                          const nextType = event.target.value;
+                          const supportType = ['mensajero', 'cocina'].includes(nextType);
+                          setSelectedParticipant({
+                            ...selectedParticipant,
+                            tipo_participante: nextType,
+                            sistema_educativo: supportType ? '' : (nextType === 'joven' && selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.sistema_educativo),
+                            anio_escolar: supportType || selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.anio_escolar,
+                          });
+                        }} required>
                         <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                       </select>
                     </div>
-                    <div className="participant-field">
-                      <label htmlFor="edit-participant-education-system">Sistema educativo</label>
-                      <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value })}>
-                        <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
-                      </select>
-                    </div>
-                    <div className="participant-field">
-                      <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
-                      <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
-                        <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
-                      </select>
-                    </div>
+                    {!['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante) && (
+                      <>
+                        <div className="participant-field">
+                          <label htmlFor="edit-participant-education-system">Sistema educativo</label>
+                          <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value, anio_escolar: event.target.value === 'no_aplica' ? '' : selectedParticipant.anio_escolar })}>
+                            <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
+                            {['servidor', 'entrenante'].includes(selectedParticipant.tipo_participante) && <option value="no_aplica">No aplica</option>}
+                          </select>
+                        </div>
+                        {selectedParticipant.sistema_educativo !== 'no_aplica' && (
+                          <div className="participant-field">
+                            <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
+                            <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
+                              <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
+                            </select>
+                          </div>
+                        )}
+                      </>
+                    )}
                     <div className="participant-field">
                       <label htmlFor="edit-participant-birth">Fecha de nacimiento</label>
                       <input id="edit-participant-birth" type="date" value={selectedParticipant.fecha_nacimiento || ''} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, fecha_nacimiento: event.target.value })} />
@@ -1182,7 +1200,7 @@ export default function App() {
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
                     <div><dt>Asiste como</dt><dd>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[selectedParticipant.tipo_participante] || 'Pendiente de selección'}</dd></div>
-                    <div><dt>Sistema educativo</dt><dd>{selectedParticipant.sistema_educativo === 'nacional' ? 'Nacional' : selectedParticipant.sistema_educativo === 'americano' ? 'Americano' : 'No registrado'}</dd></div>
+                    <div><dt>Sistema educativo</dt><dd>{selectedParticipant.sistema_educativo === 'nacional' ? 'Nacional' : selectedParticipant.sistema_educativo === 'americano' ? 'Americano' : selectedParticipant.sistema_educativo === 'no_aplica' ? 'No aplica' : 'No registrado'}</dd></div>
                     <div><dt>Año escolar (último completado)</dt><dd>{selectedParticipant.anio_escolar || 'No registrado'}</dd></div>
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
                   </dl>
@@ -1269,22 +1287,38 @@ export default function App() {
                   </div>
                   <div className="participant-field">
                     <label htmlFor="participant-type">Asiste como *</label>
-                    <select id="participant-type" value={participantType} onChange={(event) => setParticipantType(event.target.value)} required>
+                    <select id="participant-type" value={participantType} onChange={(event) => {
+                      const nextType = event.target.value;
+                      setParticipantType(nextType);
+                      if (['mensajero', 'cocina'].includes(nextType)) {
+                        setParticipantEducationSystem('');
+                        setParticipantSchoolYear('');
+                      } else if (nextType === 'joven' && participantEducationSystem === 'no_aplica') {
+                        setParticipantEducationSystem('');
+                      }
+                    }} required>
                       <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                     </select>
                   </div>
-                  <div className="participant-field">
-                    <label htmlFor="participant-education-system">Sistema educativo</label>
-                    <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => setParticipantEducationSystem(event.target.value)}>
-                      <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
-                    </select>
-                  </div>
-                  <div className="participant-field">
-                    <label htmlFor="participant-school-year">Año escolar (último completado)</label>
-                    <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
-                      <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
-                    </select>
-                  </div>
+                  {!['mensajero', 'cocina'].includes(participantType) && (
+                    <>
+                      <div className="participant-field">
+                        <label htmlFor="participant-education-system">Sistema educativo</label>
+                        <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => { setParticipantEducationSystem(event.target.value); if (event.target.value === 'no_aplica') setParticipantSchoolYear(''); }}>
+                          <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
+                          {['servidor', 'entrenante'].includes(participantType) && <option value="no_aplica">No aplica</option>}
+                        </select>
+                      </div>
+                      {participantEducationSystem !== 'no_aplica' && (
+                        <div className="participant-field">
+                          <label htmlFor="participant-school-year">Año escolar (último completado)</label>
+                          <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
+                            <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <div className="participant-field">
                     <label htmlFor="participant-birth">Fecha de nacimiento</label>
                     <input id="participant-birth" type="date" value={participantBirthDate} onChange={(event) => setParticipantBirthDate(event.target.value)} max={new Date().toISOString().slice(0, 10)} />
