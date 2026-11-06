@@ -59,9 +59,10 @@ export default function App() {
   const [enrollments, setEnrollments] = useState([]);
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState('');
-  const [enrollmentParticipantId, setEnrollmentParticipantId] = useState('');
   const [enrollmentCycleId, setEnrollmentCycleId] = useState('');
-  const [enrollmentServerLevelId, setEnrollmentServerLevelId] = useState('');
+  const [enrollmentChurchId, setEnrollmentChurchId] = useState('');
+  const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState([]);
+  const [enrollmentServerLevels, setEnrollmentServerLevels] = useState({});
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
   const [savingParticipationId, setSavingParticipationId] = useState('');
@@ -191,7 +192,7 @@ export default function App() {
       supabase.from('participantes')
         .select('id, codigo, nombre_completo, iglesia_id, activo')
         .order('nombre_completo', { ascending: true }),
-      supabase.from('iglesias').select('id, nombre'),
+      supabase.from('iglesias').select('id, nombre, activa'),
       supabase.from('ciclos_escolares')
         .select('id, anio, fecha_inicio, fecha_fin, estado')
         .order('anio', { ascending: false }),
@@ -280,42 +281,64 @@ export default function App() {
       || null;
   }
 
-  function getEnrollmentLevel() {
-    if (getEnrollmentType(enrollmentParticipantId, enrollmentCycleId) === 'servidor') {
-      return enrollmentLevels.find((level) => level.id === enrollmentServerLevelId) || null;
+  function getEnrollmentLevelFor(participantId, cycleId, serverLevelId) {
+    if (getEnrollmentType(participantId, cycleId) === 'servidor') {
+      return enrollmentLevels.find((level) => level.id === serverLevelId && level.activo) || null;
     }
-    return getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId);
+    return getRecommendedLevel(participantId, cycleId);
   }
 
-  async function handleAddEnrollment(event) {
+  const enrolledParticipantIds = new Set(
+    enrollments.filter((item) => item.ciclo_id === enrollmentCycleId).map((item) => item.participante_id)
+  );
+  const churchParticipants = enrollmentParticipants.filter(
+    (participant) => participant.activo && participant.iglesia_id === enrollmentChurchId
+  );
+  const eligibleChurchParticipants = churchParticipants.filter(
+    (participant) => !enrolledParticipantIds.has(participant.id)
+  );
+  const selectedEligibleParticipants = eligibleChurchParticipants.filter(
+    (participant) => selectedEnrollmentIds.includes(participant.id)
+  );
+  const allEligibleSelected = eligibleChurchParticipants.length > 0
+    && eligibleChurchParticipants.every((participant) => selectedEnrollmentIds.includes(participant.id));
+
+  async function handleBulkAddEnrollments(event) {
     event.preventDefault();
-    const tipoInscripcion = getEnrollmentType(enrollmentParticipantId, enrollmentCycleId);
-    const selectedLevel = getEnrollmentLevel();
-    if (!enrollmentParticipantId || !enrollmentCycleId || !selectedLevel) {
-      setEnrollmentError(tipoInscripcion === 'servidor'
-        ? 'Selecciona el nivel en el que servirá este año.'
-        : 'Selecciona un joven y un ciclo con niveles disponibles.');
+    if (!enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0) {
+      setEnrollmentError('Selecciona el ciclo, la iglesia y al menos una persona.');
       return;
     }
-    setSavingEnrollment(true);
-    setEnrollmentError('');
-    const { error: insertError } = await supabase
-      .from('inscripciones')
-      .insert({
-        participante_id: enrollmentParticipantId,
+    const rows = selectedEligibleParticipants.map((participant) => {
+      const tipoInscripcion = getEnrollmentType(participant.id, enrollmentCycleId);
+      const level = getEnrollmentLevelFor(
+        participant.id,
+        enrollmentCycleId,
+        enrollmentServerLevels[participant.id]
+      );
+      return level ? {
+        participante_id: participant.id,
         ciclo_id: enrollmentCycleId,
-        nivel_id: selectedLevel.id,
+        nivel_id: level.id,
         tipo_inscripcion: tipoInscripcion,
         estado: 'inscrito',
-      });
+      } : null;
+    });
+    if (rows.some((row) => !row)) {
+      setEnrollmentError('Selecciona el nivel correspondiente para cada servidor antes de confirmar.');
+      return;
+    }
 
+    setSavingEnrollment(true);
+    setEnrollmentError('');
+    const { error: insertError } = await supabase.from('inscripciones').insert(rows);
     if (insertError) {
       setEnrollmentError(insertError.code === '23505'
-        ? 'Esta persona ya tiene una inscripción en el ciclo seleccionado.'
-        : 'No se pudo guardar la inscripción. Verifica los permisos e inténtalo de nuevo.');
+        ? 'Una o más personas ya tienen inscripción en este ciclo. Actualiza la lista e inténtalo de nuevo.'
+        : 'No se pudieron guardar las inscripciones. Verifica los permisos e inténtalo de nuevo.');
     } else {
-      setEnrollmentParticipantId('');
-      setEnrollmentServerLevelId('');
+      setSelectedEnrollmentIds([]);
+      setEnrollmentServerLevels({});
       await loadEnrollments();
     }
     setSavingEnrollment(false);
@@ -589,43 +612,89 @@ export default function App() {
             <span className="module-count">{enrollments.length} inscritas</span>
           </div>
 
-          <form className="church-form participant-form" onSubmit={handleAddEnrollment}>
-            <p className="eyebrow">NUEVA INSCRIPCIÓN</p>
+          <form className="church-form participant-form" onSubmit={handleBulkAddEnrollments}>
+            <p className="eyebrow">INSCRIPCIÓN POR IGLESIA</p>
             <div className="participant-fields enrollment-fields">
               <div className="participant-field">
                 <label htmlFor="enrollment-cycle">Ciclo *</label>
-                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => setEnrollmentCycleId(event.target.value)} required>
+                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); }} required>
                   <option value="">Seleccionar ciclo</option>
                   {enrollmentCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
                 </select>
               </div>
               <div className="participant-field">
-                <label htmlFor="enrollment-participant">Joven o servidor *</label>
-                <select id="enrollment-participant" value={enrollmentParticipantId} onChange={(event) => { setEnrollmentParticipantId(event.target.value); setEnrollmentServerLevelId(''); }} required>
-                  <option value="">Seleccionar persona</option>
-                  {enrollmentParticipants.filter((participant) => participant.activo).map((participant) => <option key={participant.id} value={participant.id}>{participant.nombre_completo}{participant.codigo ? ` · ${participant.codigo}` : ''}</option>)}
+                <label htmlFor="enrollment-church">Iglesia / localidad *</label>
+                <select id="enrollment-church" value={enrollmentChurchId} onChange={(event) => { setEnrollmentChurchId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); }} required>
+                  <option value="">Seleccionar iglesia</option>
+                  {churches.filter((church) => church.activa).map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
                 </select>
               </div>
               <div className="participant-field enrollment-level-field">
-                {getEnrollmentType(enrollmentParticipantId, enrollmentCycleId) === 'servidor' ? (
-                  <>
-                    <label htmlFor="enrollment-server-level">Nivel preferido del servidor *</label>
-                    <select id="enrollment-server-level" value={enrollmentServerLevelId} onChange={(event) => setEnrollmentServerLevelId(event.target.value)} required>
-                      <option value="">Seleccionar nivel</option>
-                      {enrollmentLevels.filter((level) => level.activo).map((level) => <option key={level.id} value={level.id}>{level.nombre}</option>)}
-                    </select>
-                  </>
-                ) : (
-                  <>
-                    <label>Nivel asignado automáticamente</label>
-                    <div className="auto-level-value">{getRecommendedLevel(enrollmentParticipantId, enrollmentCycleId)?.nombre || 'Se asignará al seleccionar'}</div>
-                  </>
-                )}
+                <label>Personas por inscribir</label>
+                <div className="auto-level-value">{eligibleChurchParticipants.length} disponibles</div>
               </div>
             </div>
-            <p className="enrollment-note">Los jóvenes comienzan en Nivel 1 y avanzan únicamente si completan el ciclo a tiempo completo. Al completar el Nivel 6 pasan a ser servidores. Los servidores eligen cada año cualquiera de los seis niveles.</p>
-            <div className="participant-submit">
-              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentParticipantId || !enrollmentCycleId || !getEnrollmentLevel()}>{savingEnrollment ? 'Guardando…' : 'Registrar inscripción'}</button>
+            <p className="enrollment-note">Se muestran los participantes activos de la iglesia seleccionada. Quienes ya están inscritos en este ciclo no se pueden volver a seleccionar.</p>
+            {enrollmentChurchId && (
+              <div className="enrollment-selection">
+                <div className="enrollment-selection-heading">
+                  <strong>Participantes de esta iglesia</strong>
+                  <button className="text-button" type="button" onClick={() => setSelectedEnrollmentIds(allEligibleSelected ? [] : eligibleChurchParticipants.map((participant) => participant.id))} disabled={eligibleChurchParticipants.length === 0}>
+                    {allEligibleSelected ? 'Quitar selección' : 'Seleccionar todos'}
+                  </button>
+                </div>
+                {churchParticipants.length === 0 ? (
+                  <p className="empty-state">Esta iglesia todavía no tiene participantes activos registrados.</p>
+                ) : (
+                  <div className="enrollment-choice-list">
+                    {churchParticipants.map((participant) => {
+                      const alreadyEnrolled = enrolledParticipantIds.has(participant.id);
+                      const isSelected = selectedEnrollmentIds.includes(participant.id);
+                      const type = getEnrollmentType(participant.id, enrollmentCycleId);
+                      const recommendedLevel = getRecommendedLevel(participant.id, enrollmentCycleId);
+                      return (
+                        <div className={`enrollment-choice ${alreadyEnrolled ? 'enrollment-choice-disabled' : ''}`} key={participant.id}>
+                          <label className="enrollment-choice-person">
+                            <input
+                              type="checkbox"
+                              checked={alreadyEnrolled ? false : isSelected}
+                              disabled={alreadyEnrolled || !enrollmentCycleId}
+                              onChange={(event) => setSelectedEnrollmentIds((current) => event.target.checked
+                                ? [...current, participant.id]
+                                : current.filter((id) => id !== participant.id))}
+                            />
+                            <span>
+                              <strong>{participant.nombre_completo}</strong>
+                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : type === 'servidor' ? 'Servidor' : `Joven · ${recommendedLevel?.nombre || 'Nivel pendiente'}`}</small>
+                            </span>
+                          </label>
+                          {isSelected && type === 'servidor' && (
+                            <div className="participant-field enrollment-server-choice">
+                              <label htmlFor={`server-level-${participant.id}`}>Nivel del servidor *</label>
+                              <select
+                                id={`server-level-${participant.id}`}
+                                value={enrollmentServerLevels[participant.id] || ''}
+                                onChange={(event) => setEnrollmentServerLevels((current) => ({ ...current, [participant.id]: event.target.value }))}
+                                required
+                              >
+                                <option value="">Seleccionar nivel</option>
+                                {enrollmentLevels.filter((level) => level.activo).map((level) => <option key={level.id} value={level.id}>{level.nombre}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="enrollment-note">Los jóvenes avanzan automáticamente si completan el ciclo a tiempo completo. Al completar el Nivel 6 pasan a ser servidores. Los servidores pueden elegir cualquiera de los seis niveles cada año.</p>
+            <div className="participant-submit enrollment-submit">
+              <span className="enrollment-selected-count">{selectedEligibleParticipants.length} seleccionados</span>
+              <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => getEnrollmentType(participant.id, enrollmentCycleId) === 'servidor' && !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]))}>
+                {savingEnrollment ? 'Guardando…' : 'Confirmar inscripciones'}
+              </button>
             </div>
           </form>
 
