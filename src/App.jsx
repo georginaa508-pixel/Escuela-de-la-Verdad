@@ -45,6 +45,7 @@ export default function App() {
   const [participantError, setParticipantError] = useState('');
   const [participantName, setParticipantName] = useState('');
   const [participantChurch, setParticipantChurch] = useState('');
+  const [participantType, setParticipantType] = useState('');
   const [participantBirthDate, setParticipantBirthDate] = useState('');
   const [participantSex, setParticipantSex] = useState('');
   const [participantPhone, setParticipantPhone] = useState('');
@@ -161,7 +162,7 @@ export default function App() {
       { data: enrollmentData, error: participantEnrollmentError },
     ] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -176,16 +177,9 @@ export default function App() {
       setParticipants([]);
       if (!churchQueryError) setChurches(churchData ?? []);
     } else {
-      const latestTypeByParticipant = new Map();
-      (enrollmentData ?? []).forEach((enrollment) => {
-        if (!latestTypeByParticipant.has(enrollment.participante_id)) {
-          latestTypeByParticipant.set(enrollment.participante_id, enrollment.tipo_inscripcion);
-        }
-      });
       setParticipants((participantData ?? []).map((participant) => ({
         ...participant,
         iglesia: (churchData ?? []).find((church) => church.id === participant.iglesia_id)?.nombre ?? '',
-        tipoParticipante: latestTypeByParticipant.get(participant.id) || '',
       })));
       setChurches((churchData ?? []).filter((church) => church.activa));
     }
@@ -209,7 +203,7 @@ export default function App() {
       { data: enrollmentData, error: enrollmentQueryError },
     ] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, activo')
+        .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, activo')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias').select('id, nombre, activa'),
       supabase.from('ciclos_escolares')
@@ -276,13 +270,14 @@ export default function App() {
 
   function getEnrollmentType(participantId, cycleId) {
     const previousEnrollment = getPreviousEnrollment(participantId, cycleId);
-    if (!previousEnrollment) return enrollmentInitialTypes[participantId] || '';
-    if (previousEnrollment.tipo_inscripcion === 'servidor') return 'servidor';
+    const participantType = enrollmentParticipants.find((participant) => participant.id === participantId)?.tipo_participante;
+    if (!previousEnrollment) return participantType || '';
+    if (participantType === 'servidor' || previousEnrollment.tipo_inscripcion === 'servidor') return 'servidor';
     const previousLevel = enrollmentLevels.find((level) => level.id === previousEnrollment.nivel_id);
     const previousNumber = previousLevel?.numero ?? previousEnrollment.numeroNivel ?? 1;
     return previousNumber === 6 && previousEnrollment.tipo_participacion === 'tiempo_completo'
       ? 'servidor'
-      : 'joven';
+      : participantType || 'joven';
   }
 
   function getRecommendedLevel(participantId, cycleId) {
@@ -418,6 +413,24 @@ export default function App() {
       }
     }
 
+    const promotedParticipantIds = cycleRows
+      .filter((item) => item.tipo_inscripcion === 'joven'
+        && item.numeroNivel === 6
+        && (closureExceptions[item.id] || 'tiempo_completo') === 'tiempo_completo')
+      .map((item) => item.participante_id);
+    if (promotedParticipantIds.length > 0) {
+      const { error: promotionError } = await supabase
+        .from('participantes')
+        .update({ tipo_participante: 'servidor' })
+        .in('id', promotedParticipantIds);
+      if (promotionError) {
+        setEnrollmentError('Las participaciones se guardaron, pero no se pudo actualizar la clasificación de quienes completaron el nivel 6. Puedes corregirla desde Participantes.');
+        setSavingCycleClosure(false);
+        await loadEnrollments();
+        return;
+      }
+    }
+
     setClosingCycleId('');
     setClosureExceptions({});
     setParticipationDrafts({});
@@ -432,7 +445,7 @@ export default function App() {
   async function handleAddParticipant(event) {
     event.preventDefault();
     const name = participantName.trim();
-    if (!name || !participantSex || (hasDuplicateParticipant && !confirmDuplicate)) return;
+    if (!name || !participantSex || !participantType || (hasDuplicateParticipant && !confirmDuplicate)) return;
     setSavingParticipant(true);
     setParticipantError('');
     const { error: insertError } = await supabase
@@ -440,6 +453,7 @@ export default function App() {
       .insert({
         nombre_completo: name,
         iglesia_id: participantChurch || null,
+        tipo_participante: participantType,
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
@@ -456,6 +470,7 @@ export default function App() {
     } else {
       setParticipantName('');
       setParticipantChurch('');
+      setParticipantType('');
       setParticipantBirthDate('');
       setParticipantSex('');
       setParticipantPhone('');
@@ -470,12 +485,13 @@ export default function App() {
 
   async function handleSaveParticipantChanges(event) {
     event.preventDefault();
-    if (!selectedParticipant?.nombre_completo?.trim() || !selectedParticipant?.sexo) return;
+    if (!selectedParticipant?.nombre_completo?.trim() || !selectedParticipant?.sexo || !selectedParticipant?.tipo_participante) return;
     setSavingParticipantChanges(true);
     setParticipantError('');
     const changes = {
       nombre_completo: selectedParticipant.nombre_completo.trim(),
       iglesia_id: selectedParticipant.iglesia_id || null,
+      tipo_participante: selectedParticipant.tipo_participante,
       fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
       sexo: selectedParticipant.sexo,
       telefono: selectedParticipant.telefono?.trim() || null,
@@ -721,17 +737,11 @@ export default function App() {
                             />
                             <span>
                               <strong>{participant.nombre_completo}</strong>
-                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : previousEnrollment ? (type === 'servidor' ? 'Servidor · nivel a elegir' : `Joven · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}`) : 'Sin historial digital · confirmar tipo y nivel inicial'}</small>
+                              <small>{participant.codigo || 'Sin código'} · {alreadyEnrolled ? 'Ya inscrito en este ciclo' : previousEnrollment ? (type === 'servidor' ? 'Servidor · nivel a elegir' : `Joven · corresponde ${recommendedLevel?.nombre || 'nivel pendiente'}`) : `${type === 'servidor' ? 'Servidor' : type === 'joven' ? 'Joven' : 'Clasificación pendiente'} · confirmar nivel inicial`}</small>
                             </span>
                           </label>
                           {isSelected && !previousEnrollment && (
                             <div className="participant-fields enrollment-fields enrollment-initial-fields">
-                              <div className="participant-field enrollment-server-choice">
-                                <label htmlFor={`initial-type-${participant.id}`}>Tipo de inscripción inicial *</label>
-                                <select id={`initial-type-${participant.id}`} value={enrollmentInitialTypes[participant.id] || ''} onChange={(event) => setEnrollmentInitialTypes((current) => ({ ...current, [participant.id]: event.target.value }))} required>
-                                  <option value="">Confirmar tipo</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
-                                </select>
-                              </div>
                               <div className="participant-field enrollment-server-choice">
                                 <label htmlFor={`initial-level-${participant.id}`}>Nivel inicial confirmado *</label>
                                 <select id={`initial-level-${participant.id}`} value={enrollmentInitialLevels[participant.id] || ''} onChange={(event) => setEnrollmentInitialLevels((current) => ({ ...current, [participant.id]: event.target.value }))} required>
@@ -762,7 +772,7 @@ export default function App() {
                 )}
               </div>
             )}
-            <p className="enrollment-note">En la primera inscripción digital, Coordinación confirma el tipo (joven o servidor) y el nivel de cada persona sin historial. Después, el sistema recomienda el avance de los jóvenes según su participación; los servidores eligen su nivel cada año.</p>
+            <p className="enrollment-note">La clasificación se toma del expediente de Participantes. En la primera inscripción digital, Coordinación confirma el nivel inicial; después, el sistema recomienda el avance de los jóvenes según su participación y los servidores eligen su nivel cada año.</p>
             <div className="participant-submit enrollment-submit">
               <span className="enrollment-selected-count">{selectedEligibleParticipants.length} seleccionados</span>
               <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => !getEnrollmentType(participant.id, enrollmentCycleId) || !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]))}>
@@ -891,6 +901,12 @@ export default function App() {
                       </select>
                     </div>
                     <div className="participant-field">
+                      <label htmlFor="edit-participant-type">Clasificación *</label>
+                      <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, tipo_participante: event.target.value })} required>
+                        <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
+                      </select>
+                    </div>
+                    <div className="participant-field">
                       <label htmlFor="edit-participant-birth">Fecha de nacimiento</label>
                       <input id="edit-participant-birth" type="date" value={selectedParticipant.fecha_nacimiento || ''} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, fecha_nacimiento: event.target.value })} />
                     </div>
@@ -923,7 +939,7 @@ export default function App() {
                   </div>
                   <div className="participant-edit-buttons">
                     <button className="text-button" type="button" onClick={() => { setSelectedParticipant(participantBeforeEdit); setParticipantBeforeEdit(null); setEditingParticipant(false); setParticipantError(''); }}>Cancelar</button>
-                    <button className="primary-button" type="submit" disabled={savingParticipantChanges || !selectedParticipant.nombre_completo?.trim() || !selectedParticipant.sexo}>{savingParticipantChanges ? 'Guardando…' : 'Guardar cambios'}</button>
+                    <button className="primary-button" type="submit" disabled={savingParticipantChanges || !selectedParticipant.nombre_completo?.trim() || !selectedParticipant.sexo || !selectedParticipant.tipo_participante}>{savingParticipantChanges ? 'Guardando…' : 'Guardar cambios'}</button>
                   </div>
                 </form>
               )}
@@ -934,7 +950,7 @@ export default function App() {
                     <div><dt>Fecha de nacimiento</dt><dd>{selectedParticipant.fecha_nacimiento ? new Date(selectedParticipant.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-HN') : 'No registrada'}</dd></div>
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
-                    <div><dt>Clasificación actual</dt><dd>{selectedParticipant.tipoParticipante === 'servidor' ? 'Servidor' : selectedParticipant.tipoParticipante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</dd></div>
+                    <div><dt>Clasificación actual</dt><dd>{selectedParticipant.tipo_participante === 'servidor' ? 'Servidor' : selectedParticipant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</dd></div>
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
                   </dl>
                 </article>
@@ -967,6 +983,12 @@ export default function App() {
                     <select id="participant-church" value={participantChurch} onChange={(event) => setParticipantChurch(event.target.value)}>
                       <option value="">Sin iglesia asignada</option>
                       {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="participant-field">
+                    <label htmlFor="participant-type">Clasificación *</label>
+                    <select id="participant-type" value={participantType} onChange={(event) => setParticipantType(event.target.value)} required>
+                      <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
                     </select>
                   </div>
                   <div className="participant-field">
@@ -1012,7 +1034,7 @@ export default function App() {
                   </label>
                 )}
                 <div className="participant-submit">
-                  <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || !participantSex || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
+                  <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || !participantSex || !participantType || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
                 </div>
               </form>
 
@@ -1026,7 +1048,7 @@ export default function App() {
                       <div className="participant-info">
                         <strong>{participant.nombre_completo}</strong>
                         <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                        <span>{participant.tipoParticipante === 'servidor' ? 'Servidor' : participant.tipoParticipante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</span>
+                        <span>{participant.tipo_participante === 'servidor' ? 'Servidor' : participant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</span>
                         {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                         <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                       </div>
