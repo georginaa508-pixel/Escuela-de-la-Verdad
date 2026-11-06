@@ -506,7 +506,7 @@ export default function App() {
         iglesia_id: participantChurch || null,
         tipo_participante: participantType,
         sistema_educativo: hasEducationFields ? (participantEducationSystem || null) : null,
-        anio_escolar: hasEducationFields && participantEducationSystem !== 'no_aplica' ? (participantSchoolYear || null) : null,
+        anio_escolar: hasEducationFields ? (participantSchoolYear || null) : null,
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
@@ -627,7 +627,7 @@ export default function App() {
           iglesia_id: participantImportChurch,
           tipo_participante: type,
           sistema_educativo: ['mensajero', 'cocina'].includes(type) ? null : (type === 'joven' && String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? null : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? 'no_aplica' : null),
-          anio_escolar: ['mensajero', 'cocina'].includes(type) || (['servidor', 'entrenante'].includes(type) && String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no')) ? null : importSchoolYear(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')),
+          anio_escolar: ['mensajero', 'cocina'].includes(type) ? null : importSchoolYear(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')),
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
@@ -679,7 +679,7 @@ export default function App() {
       iglesia_id: selectedParticipant.iglesia_id || null,
       tipo_participante: selectedParticipant.tipo_participante,
       sistema_educativo: hasEducationFields ? (selectedParticipant.sistema_educativo || null) : null,
-      anio_escolar: hasEducationFields && selectedParticipant.sistema_educativo !== 'no_aplica' ? (selectedParticipant.anio_escolar || null) : null,
+      anio_escolar: hasEducationFields ? (selectedParticipant.anio_escolar || null) : null,
       fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
       sexo: selectedParticipant.sexo,
       telefono: selectedParticipant.telefono?.trim() || null,
@@ -1145,12 +1145,12 @@ export default function App() {
                       <>
                         <div className="participant-field">
                           <label htmlFor="edit-participant-education-system">Sistema educativo</label>
-                          <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value, anio_escolar: event.target.value === 'no_aplica' ? '' : selectedParticipant.anio_escolar })}>
+                          <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value })}>
                             <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
                             {['servidor', 'entrenante'].includes(selectedParticipant.tipo_participante) && <option value="no_aplica">No aplica</option>}
                           </select>
                         </div>
-                        {selectedParticipant.sistema_educativo !== 'no_aplica' && (
+                        {
                           <div className="participant-field">
                             <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
                             <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
@@ -1317,12 +1317,12 @@ export default function App() {
                     <>
                       <div className="participant-field">
                         <label htmlFor="participant-education-system">Sistema educativo</label>
-                        <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => { setParticipantEducationSystem(event.target.value); if (event.target.value === 'no_aplica') setParticipantSchoolYear(''); }}>
+                        <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => setParticipantEducationSystem(event.target.value)}>
                           <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
                           {['servidor', 'entrenante'].includes(participantType) && <option value="no_aplica">No aplica</option>}
                         </select>
                       </div>
-                      {participantEducationSystem !== 'no_aplica' && (
+                      {
                         <div className="participant-field">
                           <label htmlFor="participant-school-year">Año escolar (último completado)</label>
                           <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
