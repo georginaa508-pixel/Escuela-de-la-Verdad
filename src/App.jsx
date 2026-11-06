@@ -38,6 +38,8 @@ export default function App() {
   const [savingChurch, setSavingChurch] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
+  const [editingParticipant, setEditingParticipant] = useState(false);
+  const [savingParticipantChanges, setSavingParticipantChanges] = useState(false);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantError, setParticipantError] = useState('');
   const [participantName, setParticipantName] = useState('');
@@ -204,6 +206,38 @@ export default function App() {
       await loadParticipants();
     }
     setSavingParticipant(false);
+  }
+
+  async function handleSaveParticipantChanges(event) {
+    event.preventDefault();
+    if (!selectedParticipant?.nombre_completo?.trim() || !selectedParticipant?.sexo) return;
+    setSavingParticipantChanges(true);
+    setParticipantError('');
+    const changes = {
+      nombre_completo: selectedParticipant.nombre_completo.trim(),
+      iglesia_id: selectedParticipant.iglesia_id || null,
+      fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
+      sexo: selectedParticipant.sexo,
+      telefono: selectedParticipant.telefono?.trim() || null,
+      necesita_libro: Boolean(selectedParticipant.necesita_libro),
+      dieta_especial: selectedParticipant.dieta_especial?.trim() || null,
+      formulario_directrices_firmado: Boolean(selectedParticipant.formulario_directrices_firmado),
+    };
+    const { error: updateError } = await supabase
+      .from('participantes')
+      .update(changes)
+      .eq('id', selectedParticipant.id);
+
+    if (updateError) {
+      setParticipantError('No se pudieron guardar los cambios. Verifica los permisos e inténtalo de nuevo.');
+    } else {
+      const churchName = churches.find((church) => church.id === changes.iglesia_id)?.nombre
+        ?? (changes.iglesia_id === selectedParticipant.iglesia_id ? selectedParticipant.iglesia : '');
+      setSelectedParticipant({ ...selectedParticipant, ...changes, iglesia: churchName });
+      setEditingParticipant(false);
+      await loadParticipants();
+    }
+    setSavingParticipantChanges(false);
   }
 
   async function handleToggleParticipant(participant) {
@@ -383,6 +417,63 @@ export default function App() {
                 </div>
                 <span className={selectedParticipant.activo ? 'status-active' : 'status-inactive'}>{selectedParticipant.activo ? 'Activo' : 'Inactivo'}</span>
               </div>
+              <div className="profile-edit-actions">
+                {!editingParticipant && <button className="primary-button" type="button" onClick={() => { setParticipantError(''); setEditingParticipant(true); }}>Editar datos</button>}
+              </div>
+              {participantError && <p className="auth-error" role="alert">{participantError}</p>}
+              {editingParticipant && (
+                <form className="church-form participant-form profile-edit-form" onSubmit={handleSaveParticipantChanges}>
+                  <p className="eyebrow">EDITAR INFORMACIÓN DEL PARTICIPANTE</p>
+                  <div className="participant-fields">
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-name">Nombre completo *</label>
+                      <input id="edit-participant-name" value={selectedParticipant.nombre_completo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, nombre_completo: event.target.value })} maxLength={180} required />
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-church">Iglesia</label>
+                      <select id="edit-participant-church" value={selectedParticipant.iglesia_id || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, iglesia_id: event.target.value })}>
+                        <option value="">Sin iglesia asignada</option>
+                        {selectedParticipant.iglesia_id && !churches.some((church) => church.id === selectedParticipant.iglesia_id) && <option value={selectedParticipant.iglesia_id}>{selectedParticipant.iglesia} (inactiva)</option>}
+                        {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
+                      </select>
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-birth">Fecha de nacimiento</label>
+                      <input id="edit-participant-birth" type="date" value={selectedParticipant.fecha_nacimiento || ''} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, fecha_nacimiento: event.target.value })} />
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-sex">Sexo *</label>
+                      <select id="edit-participant-sex" value={selectedParticipant.sexo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sexo: event.target.value })} required>
+                        <option value="">Seleccionar</option><option value="F">F — Femenino</option><option value="M">M — Masculino</option>
+                      </select>
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-phone">Teléfono del participante</label>
+                      <input id="edit-participant-phone" type="tel" value={selectedParticipant.telefono || ''} maxLength={30} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, telefono: event.target.value })} />
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-book">¿Necesita libro?</label>
+                      <select id="edit-participant-book" value={selectedParticipant.necesita_libro ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, necesita_libro: event.target.value === 'true' })}>
+                        <option value="false">No</option><option value="true">Sí</option>
+                      </select>
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-diet">Dieta especial por salud</label>
+                      <input id="edit-participant-diet" value={selectedParticipant.dieta_especial || ''} maxLength={300} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, dieta_especial: event.target.value })} />
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-guidelines">¿Firmó el formulario de directrices?</label>
+                      <select id="edit-participant-guidelines" value={selectedParticipant.formulario_directrices_firmado ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, formulario_directrices_firmado: event.target.value === 'true' })}>
+                        <option value="false">No</option><option value="true">Sí</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="participant-edit-buttons">
+                    <button className="text-button" type="button" onClick={() => { setEditingParticipant(false); setParticipantError(''); loadParticipants().then(() => setSelectedParticipant((current) => current)); }}>Cancelar</button>
+                    <button className="primary-button" type="submit" disabled={savingParticipantChanges || !selectedParticipant.nombre_completo?.trim() || !selectedParticipant.sexo}>{savingParticipantChanges ? 'Guardando…' : 'Guardar cambios'}</button>
+                  </div>
+                </form>
+              )}
               <div className="profile-grid">
                 <article className="profile-card">
                   <p className="eyebrow">DATOS PERSONALES</p>
