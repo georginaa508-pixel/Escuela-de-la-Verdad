@@ -212,3 +212,33 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .enrollment-selected-count { margin-right: 0; }
   .enrollment-submit .primary-button { width: 100%; }
 }
+
+
+/* Cierre grupal del ciclo por excepciones */
+.cycle-closure { margin-top: 18px; padding: 18px; border: 1px solid #dfe7dd; border-radius: 12px; background: #fbfcfa; }
+.cycle-closure-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.cycle-closure-heading > div { display: flex; flex-direction: column; gap: 6px; }
+.cycle-closure-heading .eyebrow { margin: 0; }
+.cycle-closure-heading strong { color: #29483d; font-size: 14px; }
+.cycle-closure-heading p:not(.eyebrow) { margin: 0; color: #7a8980; font-size: 11px; line-height: 1.6; }
+.cycle-closure-summary { display: flex; gap: 20px; padding: 14px 0; color: #6f8076; font-size: 11px; }
+.cycle-closure-summary strong { color: #245b4d; font-size: 15px; }
+.cycle-exception-list { border: 1px solid #e5ebe3; border-radius: 9px; background: #fff; overflow: hidden; }
+.cycle-exception-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(145px, 180px); align-items: center; gap: 14px; padding: 12px 14px; border-bottom: 1px solid #edf0eb; }
+.cycle-exception-row:last-child { border-bottom: 0; }
+.cycle-exception-person { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cycle-exception-person strong { color: #29483d; font-size: 12px; }
+.cycle-exception-person small { color: #7a8980; font-size: 10px; }
+.cycle-exception-toggle { display: flex; align-items: center; gap: 7px; color: #52685c; font-size: 11px; white-space: nowrap; }
+.cycle-exception-toggle input { accent-color: #245b4d; }
+.cycle-exception-row select { width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid #dce5dc; border-radius: 8px; background: #fbfcfa; color: #29483d; font: inherit; font-size: 11px; }
+.cycle-closure-actions { display: flex; justify-content: flex-end; align-items: center; gap: 18px; padding-top: 16px; }
+@media (max-width: 600px) {
+  .cycle-closure { padding: 14px; }
+  .cycle-closure-heading { align-items: stretch; flex-direction: column; }
+  .cycle-closure-heading .primary-button { width: 100%; }
+  .cycle-exception-row { grid-template-columns: 1fr auto; gap: 10px; }
+  .cycle-exception-row select { grid-column: 1 / -1; }
+  .cycle-closure-actions { align-items: stretch; flex-direction: column-reverse; }
+  .cycle-closure-actions .primary-button { width: 100%; }
+}
