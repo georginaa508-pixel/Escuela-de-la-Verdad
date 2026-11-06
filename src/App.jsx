@@ -1026,6 +1026,18 @@ export default function App() {
                       </select>
                     </div>
                     <div className="participant-field">
+                      <label htmlFor="edit-participant-education-system">Sistema educativo</label>
+                      <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value })}>
+                        <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
+                      </select>
+                    </div>
+                    <div className="participant-field">
+                      <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
+                      <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
+                        <option value="">Seleccionar</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option>
+                      </select>
+                    </div>
+                    <div className="participant-field">
                       <label htmlFor="edit-participant-birth">Fecha de nacimiento</label>
                       <input id="edit-participant-birth" type="date" value={selectedParticipant.fecha_nacimiento || ''} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, fecha_nacimiento: event.target.value })} />
                     </div>
