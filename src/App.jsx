@@ -64,7 +64,6 @@ export default function App() {
   const [enrollmentChurchId, setEnrollmentChurchId] = useState('');
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState([]);
   const [enrollmentServerLevels, setEnrollmentServerLevels] = useState({});
-  const [enrollmentInitialTypes, setEnrollmentInitialTypes] = useState({});
   const [enrollmentInitialLevels, setEnrollmentInitialLevels] = useState({});
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
@@ -357,7 +356,7 @@ export default function App() {
     } else {
       setSelectedEnrollmentIds([]);
       setEnrollmentServerLevels({});
-      setEnrollmentInitialTypes({});
+     
       setEnrollmentInitialLevels({});
       await loadEnrollments();
     }
