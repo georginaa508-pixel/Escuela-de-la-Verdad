@@ -498,7 +498,7 @@ export default function App() {
     setSavingParticipant(true);
     setParticipantError('');
     const hasEducationFields = !['mensajero', 'cocina'].includes(participantType);
-    const hasBookAndGuidelines = ['joven', 'servidor'].includes(participantType);
+    const hasBookAndGuidelines = ['joven', 'servidor', 'entrenante'].includes(participantType);
     const { error: insertError } = await supabase
       .from('participantes')
       .insert({
@@ -631,9 +631,9 @@ export default function App() {
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
-          necesita_libro: ['joven', 'servidor'].includes(type) && importBoolean(pick('necesitalibro', 'libro')),
+          necesita_libro: ['joven', 'servidor', 'entrenante'].includes(type) && importBoolean(pick('necesitalibro', 'libro')),
           dieta_especial: String(pick('dietaespecial', 'restriccionalimentaria')).trim() || null,
-          formulario_directrices_firmado: ['joven', 'servidor'].includes(type) && importBoolean(pick('formulariodirectricesfirmado', 'directricesfirmadas', 'firmodirectrices')),
+          formulario_directrices_firmado: ['joven', 'servidor', 'entrenante'].includes(type) && importBoolean(pick('formulariodirectricesfirmado', 'directricesfirmadas', 'firmodirectrices')),
           duplicate: duplicateExisting || duplicateFile,
           duplicateReason: duplicateExisting ? 'Ya existe en el registro' : duplicateFile ? 'Repetido en el mismo archivo' : '',
           errors,
@@ -673,7 +673,7 @@ export default function App() {
     setSavingParticipantChanges(true);
     setParticipantError('');
     const hasEducationFields = !['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante);
-    const hasBookAndGuidelines = ['joven', 'servidor'].includes(selectedParticipant.tipo_participante);
+    const hasBookAndGuidelines = ['joven', 'servidor', 'entrenante'].includes(selectedParticipant.tipo_participante);
     const changes = {
       nombre_completo: selectedParticipant.nombre_completo.trim(),
       iglesia_id: selectedParticipant.iglesia_id || null,
@@ -1128,7 +1128,7 @@ export default function App() {
                       <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => {
                           const nextType = event.target.value;
                           const supportType = ['mensajero', 'cocina'].includes(nextType);
-                          const showBookAndGuidelines = ['joven', 'servidor'].includes(nextType);
+                          const showBookAndGuidelines = ['joven', 'servidor', 'entrenante'].includes(nextType);
                           setSelectedParticipant({
                             ...selectedParticipant,
                             tipo_participante: nextType,
@@ -1174,7 +1174,7 @@ export default function App() {
                       <label htmlFor="edit-participant-phone">Teléfono del participante</label>
                       <input id="edit-participant-phone" type="tel" value={selectedParticipant.telefono || ''} maxLength={30} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, telefono: event.target.value })} />
                     </div>
-                    {['joven', 'servidor'].includes(selectedParticipant.tipo_participante) && (
+                    {['joven', 'servidor', 'entrenante'].includes(selectedParticipant.tipo_participante) && (
                       <div className="participant-field">
                         <label htmlFor="edit-participant-book">¿Necesita libro?</label>
                         <select id="edit-participant-book" value={selectedParticipant.necesita_libro ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, necesita_libro: event.target.value === 'true' })}>
@@ -1186,7 +1186,7 @@ export default function App() {
                       <label htmlFor="edit-participant-diet">Dieta especial por salud</label>
                       <input id="edit-participant-diet" value={selectedParticipant.dieta_especial || ''} maxLength={300} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, dieta_especial: event.target.value })} />
                     </div>
-                    {['joven', 'servidor'].includes(selectedParticipant.tipo_participante) && (
+                    {['joven', 'servidor', 'entrenante'].includes(selectedParticipant.tipo_participante) && (
                       <div className="participant-field">
                         <label htmlFor="edit-participant-guidelines">¿Firmó el formulario de directrices?</label>
                         <select id="edit-participant-guidelines" value={selectedParticipant.formulario_directrices_firmado ? 'true' : 'false'} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, formulario_directrices_firmado: event.target.value === 'true' })}>
@@ -1305,7 +1305,7 @@ export default function App() {
                       } else if (nextType === 'joven' && participantEducationSystem === 'no_aplica') {
                         setParticipantEducationSystem('');
                       }
-                      if (!['joven', 'servidor'].includes(nextType)) {
+                      if (!['joven', 'servidor', 'entrenante'].includes(nextType)) {
                         setParticipantNeedsBook('false');
                         setParticipantGuidelinesSigned('false');
                       }
@@ -1349,7 +1349,7 @@ export default function App() {
                     <label htmlFor="participant-phone">Teléfono del participante</label>
                     <input id="participant-phone" type="tel" value={participantPhone} onChange={(event) => setParticipantPhone(event.target.value)} placeholder="Número de contacto" maxLength={30} />
                   </div>
-                  {['joven', 'servidor'].includes(participantType) && (
+                  {['joven', 'servidor', 'entrenante'].includes(participantType) && (
                     <div className="participant-field">
                       <label htmlFor="participant-needs-book">¿Necesita libro?</label>
                       <select id="participant-needs-book" value={participantNeedsBook} onChange={(event) => setParticipantNeedsBook(event.target.value)}>
@@ -1362,7 +1362,7 @@ export default function App() {
                     <label htmlFor="participant-diet">Dieta especial por salud (opcional)</label>
                     <input id="participant-diet" value={participantDiet} onChange={(event) => setParticipantDiet(event.target.value)} placeholder="Indica solo la restricción o alimento que debemos evitar" maxLength={300} />
                   </div>
-                  {['joven', 'servidor'].includes(participantType) && (
+                  {['joven', 'servidor', 'entrenante'].includes(participantType) && (
                     <div className="participant-field">
                       <label htmlFor="participant-guidelines">¿Firmó el formulario de directrices?</label>
                       <select id="participant-guidelines" value={participantGuidelinesSigned} onChange={(event) => setParticipantGuidelinesSigned(event.target.value)}>
