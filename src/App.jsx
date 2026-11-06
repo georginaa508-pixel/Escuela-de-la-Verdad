@@ -419,7 +419,7 @@ export default function App() {
         .update({ tipo_participante: 'servidor' })
         .in('id', promotedParticipantIds);
       if (promotionError) {
-        setEnrollmentError('Las participaciones se guardaron, pero no se pudo actualizar la clasificación de quienes completaron el nivel 6. Puedes corregirla desde Participantes.');
+        setEnrollmentError('Las participaciones se guardaron, pero no se pudo actualizar la opción «Asiste como» de quienes completaron el nivel 6. Puedes corregirla desde Participantes, en «Asiste como».');
         setSavingCycleClosure(false);
         await loadEnrollments();
         return;
@@ -896,7 +896,7 @@ export default function App() {
                       </select>
                     </div>
                     <div className="participant-field">
-                      <label htmlFor="edit-participant-type">Clasificación *</label>
+                      <label htmlFor="edit-participant-type">Asiste como *</label>
                       <select id="edit-participant-type" value={selectedParticipant.tipo_participante || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, tipo_participante: event.target.value })} required>
                         <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
                       </select>
@@ -945,7 +945,7 @@ export default function App() {
                     <div><dt>Fecha de nacimiento</dt><dd>{selectedParticipant.fecha_nacimiento ? new Date(selectedParticipant.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-HN') : 'No registrada'}</dd></div>
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
-                    <div><dt>Clasificación actual</dt><dd>{selectedParticipant.tipo_participante === 'servidor' ? 'Servidor' : selectedParticipant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</dd></div>
+                    <div><dt>Asiste como</dt><dd>{selectedParticipant.tipo_participante === 'servidor' ? 'Servidor' : selectedParticipant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}</dd></div>
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
                   </dl>
                 </article>
@@ -981,7 +981,7 @@ export default function App() {
                     </select>
                   </div>
                   <div className="participant-field">
-                    <label htmlFor="participant-type">Clasificación *</label>
+                    <label htmlFor="participant-type">Asiste como *</label>
                     <select id="participant-type" value={participantType} onChange={(event) => setParticipantType(event.target.value)} required>
                       <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option>
                     </select>
@@ -1043,7 +1043,7 @@ export default function App() {
                       <div className="participant-info">
                         <strong>{participant.nombre_completo}</strong>
                         <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                        <span>{participant.tipo_participante === 'servidor' ? 'Servidor' : participant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de clasificación'}</span>
+                        <span>{participant.tipo_participante === 'servidor' ? 'Servidor' : participant.tipo_participante === 'joven' ? 'Joven' : 'Pendiente de selección'}</span>
                         {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                         <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                       </div>
