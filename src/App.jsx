@@ -499,6 +499,22 @@ export default function App() {
     return ['si', 'sí', 'yes', 'true', '1', 'x'].includes(normalized);
   }
 
+  function importSchoolYear(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+    const normalized = normalizeImportHeader(raw);
+    const options = {
+      '7': 'Séptimo', '7mo': 'Séptimo', septimo: 'Séptimo',
+      '8': 'Octavo', '8vo': 'Octavo', octavo: 'Octavo',
+      '9': 'Noveno', '9no': 'Noveno', noveno: 'Noveno',
+      '10': 'Décimo', '10mo': 'Décimo', decimo: 'Décimo',
+      '11': 'Undécimo', '11vo': 'Undécimo', undecimo: 'Undécimo',
+      '12': 'Duodécimo', '12vo': 'Duodécimo', duodecimo: 'Duodécimo',
+      universidad: 'Universidad',
+    };
+    return options[normalized] || raw;
+  }
+
   function importDate(value) {
     if (value === null || value === undefined || value === '') return '';
     if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
@@ -560,7 +576,7 @@ export default function App() {
           iglesia_id: participantImportChurch,
           tipo_participante: type,
           sistema_educativo: String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : null,
-          anio_escolar: String(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')).trim() || null,
+          anio_escolar: importSchoolYear(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')),
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
