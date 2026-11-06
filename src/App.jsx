@@ -26,6 +26,14 @@ export default function App() {
   const [churchError, setChurchError] = useState('');
   const [churchName, setChurchName] = useState('');
   const [savingChurch, setSavingChurch] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [participantError, setParticipantError] = useState('');
+  const [participantName, setParticipantName] = useState('');
+  const [participantCode, setParticipantCode] = useState('');
+  const [participantChurch, setParticipantChurch] = useState('');
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false);
+  const [savingParticipant, setSavingParticipant] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -106,6 +114,86 @@ export default function App() {
       loadChurches();
     }
   }, [activeModule, profile]);
+
+  async function loadParticipants() {
+    setParticipantsLoading(true);
+    setParticipantError('');
+    const [{ data: participantData, error: participantQueryError }, { data: churchData, error: churchQueryError }] = await Promise.all([
+      supabase.from('participantes')
+        .select('id, codigo, nombre_completo, iglesia_id, activo, created_at')
+        .order('nombre_completo', { ascending: true }),
+      supabase.from('iglesias')
+        .select('id, nombre, activa')
+        .eq('activa', true)
+        .order('nombre', { ascending: true }),
+    ]);
+
+    if (participantQueryError || churchQueryError) {
+      setParticipantError('No se pudieron consultar los participantes o las iglesias. Revisa la conexión y los permisos de acceso.');
+      setParticipants([]);
+      if (!churchQueryError) setChurches(churchData ?? []);
+    } else {
+      setParticipants((participantData ?? []).map((participant) => ({
+        ...participant,
+        iglesia: (churchData ?? []).find((church) => church.id === participant.iglesia_id)?.nombre ?? '',
+      })));
+      setChurches(churchData ?? []);
+    }
+    setParticipantsLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeModule === 'Participantes' && profile?.rol === 'coordinacion_general' && profile.activo) {
+      loadParticipants();
+    }
+  }, [activeModule, profile]);
+
+  const hasDuplicateParticipant = participantName.trim() && participants.some(
+    (participant) => participant.nombre_completo.trim().toLocaleLowerCase() === participantName.trim().toLocaleLowerCase()
+  );
+
+  async function handleAddParticipant(event) {
+    event.preventDefault();
+    const name = participantName.trim();
+    if (!name || (hasDuplicateParticipant && !confirmDuplicate)) return;
+    setSavingParticipant(true);
+    setParticipantError('');
+    const { error: insertError } = await supabase
+      .from('participantes')
+      .insert({
+        nombre_completo: name,
+        codigo: participantCode.trim() || null,
+        iglesia_id: participantChurch || null,
+        activo: true,
+      });
+
+    if (insertError) {
+      setParticipantError(insertError.code === '23505'
+        ? 'Ese código ya está asignado a otro participante. Revisa el dato e inténtalo de nuevo.'
+        : 'No se pudo guardar el participante. Verifica los permisos e inténtalo de nuevo.');
+    } else {
+      setParticipantName('');
+      setParticipantCode('');
+      setParticipantChurch('');
+      setConfirmDuplicate(false);
+      await loadParticipants();
+    }
+    setSavingParticipant(false);
+  }
+
+  async function handleToggleParticipant(participant) {
+    setParticipantError('');
+    const { error: updateError } = await supabase
+      .from('participantes')
+      .update({ activo: !participant.activo })
+      .eq('id', participant.id);
+
+    if (updateError) {
+      setParticipantError('No se pudo actualizar el estado del participante.');
+    } else {
+      await loadParticipants();
+    }
+  }
 
   async function handleAddChurch(event) {
     event.preventDefault();
@@ -251,6 +339,62 @@ export default function App() {
             )}
           </div>
         </section>
+      ) : activeModule === 'Participantes' ? (
+        <section className="work-section">
+          <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
+          <div className="section-heading">
+            <div><p className="eyebrow">REGISTRO GENERAL</p><h2>Participantes</h2><p className="work-intro">Registra a cada estudiante una sola vez y vincúlalo con su iglesia.</p></div>
+            <span className="module-count">{participants.length} registrados</span>
+          </div>
+
+          <form className="church-form participant-form" onSubmit={handleAddParticipant}>
+            <label htmlFor="participant-name">Agregar participante</label>
+            <div className="participant-fields">
+              <div className="participant-field">
+                <label htmlFor="participant-name">Nombre completo</label>
+                <input id="participant-name" value={participantName} onChange={(event) => { setParticipantName(event.target.value); setConfirmDuplicate(false); }} placeholder="Nombre y apellidos" maxLength={180} required />
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-code">Código (opcional)</label>
+                <input id="participant-code" value={participantCode} onChange={(event) => setParticipantCode(event.target.value)} placeholder="Código del participante" maxLength={40} />
+              </div>
+              <div className="participant-field">
+                <label htmlFor="participant-church">Iglesia</label>
+                <select id="participant-church" value={participantChurch} onChange={(event) => setParticipantChurch(event.target.value)}>
+                  <option value="">Sin iglesia asignada</option>
+                  {churches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+            {hasDuplicateParticipant && (
+              <label className="duplicate-confirm">
+                <input type="checkbox" checked={confirmDuplicate} onChange={(event) => setConfirmDuplicate(event.target.checked)} />
+                Ya verifiqué que es otra persona y no un registro duplicado.
+              </label>
+            )}
+            <div className="participant-submit">
+              <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
+            </div>
+          </form>
+
+          {participantError && <p className="auth-error" role="alert">{participantError}</p>}
+          <div className="participant-list">
+            {participantsLoading ? <p className="empty-state">Cargando participantes…</p> : participants.length === 0 ? (
+              <div className="empty-state"><strong>Aún no hay participantes registrados.</strong><span>Cuando agregues uno, aparecerá en esta lista.</span></div>
+            ) : (
+              participants.map((participant) => (
+                <article className="participant-row" key={participant.id}>
+                  <div className="participant-info">
+                    <strong>{participant.nombre_completo}</strong>
+                    <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
+                    <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
+                  </div>
+                  <button className="text-button" type="button" onClick={() => handleToggleParticipant(participant)}>{participant.activo ? 'Desactivar' : 'Activar'}</button>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
       ) : (
         <>
           <section className="welcome">
@@ -273,7 +417,7 @@ export default function App() {
             </div>
             <div className="module-grid">
               {modules.map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => module.title === 'Iglesias' && setActiveModule('Iglesias')}>
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => ['Iglesias', 'Participantes'].includes(module.title) && setActiveModule(module.title)}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
