@@ -40,7 +40,6 @@ export default function App() {
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantError, setParticipantError] = useState('');
   const [participantName, setParticipantName] = useState('');
-  const [participantCode, setParticipantCode] = useState('');
   const [participantChurch, setParticipantChurch] = useState('');
   const [participantBirthDate, setParticipantBirthDate] = useState('');
   const [participantSex, setParticipantSex] = useState('');
@@ -172,17 +171,16 @@ export default function App() {
   async function handleAddParticipant(event) {
     event.preventDefault();
     const name = participantName.trim();
-    if (!name || (hasDuplicateParticipant && !confirmDuplicate)) return;
+    if (!name || !participantSex || (hasDuplicateParticipant && !confirmDuplicate)) return;
     setSavingParticipant(true);
     setParticipantError('');
     const { error: insertError } = await supabase
       .from('participantes')
       .insert({
         nombre_completo: name,
-        codigo: participantCode.trim() || null,
         iglesia_id: participantChurch || null,
         fecha_nacimiento: participantBirthDate || null,
-        sexo: participantSex || null,
+        sexo: participantSex,
         telefono: participantPhone.trim() || null,
         nombre_encargado: participantGuardian.trim() || null,
         telefono_encargado: participantGuardianPhone.trim() || null,
@@ -194,11 +192,10 @@ export default function App() {
 
     if (insertError) {
       setParticipantError(insertError.code === '23505'
-        ? 'Ese código ya está asignado a otro participante. Revisa el dato e inténtalo de nuevo.'
+        ? 'No se pudo asignar un código único al participante. Inténtalo de nuevo.'
         : 'No se pudo guardar el participante. Verifica los permisos e inténtalo de nuevo.');
     } else {
       setParticipantName('');
-      setParticipantCode('');
       setParticipantChurch('');
       setParticipantBirthDate('');
       setParticipantSex('');
@@ -388,10 +385,6 @@ export default function App() {
                 <input id="participant-name" value={participantName} onChange={(event) => { setParticipantName(event.target.value); setConfirmDuplicate(false); }} placeholder="Nombre y apellidos" maxLength={180} required />
               </div>
               <div className="participant-field">
-                <label htmlFor="participant-code">Código (opcional)</label>
-                <input id="participant-code" value={participantCode} onChange={(event) => setParticipantCode(event.target.value)} placeholder="Código del participante" maxLength={40} />
-              </div>
-              <div className="participant-field">
                 <label htmlFor="participant-church">Iglesia</label>
                 <select id="participant-church" value={participantChurch} onChange={(event) => setParticipantChurch(event.target.value)}>
                   <option value="">Sin iglesia asignada</option>
@@ -404,11 +397,11 @@ export default function App() {
                 {participantBirthDate && <small className="field-hint">Edad actual: {calculateAge(participantBirthDate)} años</small>}
               </div>
               <div className="participant-field">
-                <label htmlFor="participant-sex">Sexo</label>
-                <select id="participant-sex" value={participantSex} onChange={(event) => setParticipantSex(event.target.value)}>
-                  <option value="">Sin especificar</option>
-                  <option value="Femenino">Femenino</option>
-                  <option value="Masculino">Masculino</option>
+                <label htmlFor="participant-sex">Sexo *</label>
+                <select id="participant-sex" value={participantSex} onChange={(event) => setParticipantSex(event.target.value)} required>
+                  <option value="">Seleccionar</option>
+                  <option value="F">F — Femenino</option>
+                  <option value="M">M — Masculino</option>
                 </select>
               </div>
               <div className="participant-field">
@@ -449,7 +442,7 @@ export default function App() {
               </label>
             )}
             <div className="participant-submit">
-              <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
+              <button className="primary-button" type="submit" disabled={savingParticipant || !participantName.trim() || !participantSex || (hasDuplicateParticipant && !confirmDuplicate)}>{savingParticipant ? 'Guardando…' : 'Agregar participante'}</button>
             </div>
           </form>
 
