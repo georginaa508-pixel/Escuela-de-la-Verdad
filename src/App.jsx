@@ -17,6 +17,9 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -42,6 +45,38 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setProfile(null);
+      setProfileError('');
+      return;
+    }
+
+    let active = true;
+    setProfileLoading(true);
+    setProfileError('');
+    supabase
+      .from('perfiles')
+      .select('nombre, rol, activo')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data, error: profileQueryError }) => {
+        if (!active) return;
+        if (profileQueryError) {
+          setProfileError('La sesión está activa, pero no se pudo consultar tu perfil. Verifica que tengas un perfil activo en Coordinación General.');
+          setProfile(null);
+        } else if (!data?.activo) {
+          setProfileError('Tu perfil está inactivo. Comunícate con Coordinación General.');
+          setProfile(null);
+        } else {
+          setProfile(data);
+        }
+        setProfileLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [session]);
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -129,6 +164,9 @@ export default function App() {
           <p className="motto">DIOS <span>·</span> EDUCACIÓN <span>·</span> CARÁCTER</p>
           <p className="intro">Un espacio para organizar la información de iglesias, participantes, inscripciones y actividades de la Escuela de la Verdad.</p>
           <div className="connection-note connected"><span className="connection-dot" />Sesión iniciada correctamente</div>
+          {profileLoading && <p className="auth-description">Comprobando permisos del perfil…</p>}
+          {profileError && <p className="auth-error" role="alert">{profileError}</p>}
+          {profile && <p className="auth-description">Perfil verificado: {profile.nombre} · {profile.rol}</p>}
         </div>
       </section>
       <section className="modules-section">
