@@ -106,6 +106,8 @@ export default function App() {
   const [financeCycleId, setFinanceCycleId] = useState('');
   const [financeFees, setFinanceFees] = useState([]);
   const [financeFeeConfigs, setFinanceFeeConfigs] = useState([]);
+  const [financeGeneralFeeAmount, setFinanceGeneralFeeAmount] = useState('4000');
+  const [financeSavingFeeConfig, setFinanceSavingFeeConfig] = useState(false);
   const [financeAssigningFees, setFinanceAssigningFees] = useState(false);
   const [financePayments, setFinancePayments] = useState([]);
   const [financeMovements, setFinanceMovements] = useState([]);
@@ -827,6 +829,9 @@ export default function App() {
       }]));
       setFinanceEnrollments([...enrollmentMap.values()]);
       setFinanceFeeConfigs(feeConfigRows || []);
+      const activeCycleForFee = financeCycleId || cycleRows?.[0]?.id || '';
+      const activeFeeConfig = (feeConfigRows || []).find((item) => item.ciclo_id === activeCycleForFee);
+      setFinanceGeneralFeeAmount(String(activeFeeConfig?.monto_general ?? 4000));
       setFinanceFees((feeRows || []).map((fee) => ({
         ...fee, enrollment: enrollmentMap.get(fee.inscripcion_id),
       })));
@@ -869,6 +874,27 @@ export default function App() {
       await loadFinanceData();
     }
     setFinanceSaving(false);
+  }
+
+  async function handleSaveGeneralFeeConfig(event) {
+    event.preventDefault();
+    const amount = Number(financeGeneralFeeAmount);
+    if (!financeCycleId || !Number.isFinite(amount) || amount <= 0) {
+      setFinanceError('Ingresa una cuota general válida y selecciona un ciclo.');
+      return;
+    }
+    setFinanceSavingFeeConfig(true);
+    setFinanceError('');
+    const { error: saveError } = await supabase.from('configuracion_cuotas').upsert(
+      { ciclo_id: financeCycleId, monto_general: amount },
+      { onConflict: 'ciclo_id' }
+    );
+    if (saveError) {
+      setFinanceError('No se pudo guardar la cuota general. Verifica los permisos del perfil.');
+    } else {
+      await loadFinanceData();
+    }
+    setFinanceSavingFeeConfig(false);
   }
 
   async function handleAssignStandardFees() {
@@ -1064,6 +1090,15 @@ export default function App() {
             </select>
             <button className="text-button" type="button" onClick={loadFinanceData} disabled={financeLoading}>Actualizar datos</button>
           </div>
+          <section className="profile-card finance-records">
+            <p className="eyebrow">CONFIGURACIÓN DE CUOTAS</p>
+            <form className="finance-form" onSubmit={handleSaveGeneralFeeConfig}>
+              <label htmlFor="finance-general-fee">Cuota general del ciclo seleccionado (lempiras)</label>
+              <input id="finance-general-fee" type="number" min="0.01" step="0.01" value={financeGeneralFeeAmount} onChange={(event) => setFinanceGeneralFeeAmount(event.target.value)} required />
+              <p className="field-hint">Esta será la cuota base para Jóvenes y Servidores. Los descuentos, becas y la cuota reducida de Entrenantes se gestionarán individualmente o por categoría.</p>
+              <button className="primary-button" type="submit" disabled={financeSavingFeeConfig || !financeCycleId}>{financeSavingFeeConfig ? 'Guardando configuración…' : 'Guardar cuota general'}</button>
+            </form>
+          </section>
           {financeError && <p className="auth-error" role="alert">{financeError}</p>}
           {financeLoading ? <p className="empty-state">Cargando información financiera…</p> : (
             <>
