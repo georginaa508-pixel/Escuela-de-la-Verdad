@@ -1332,14 +1332,12 @@ export default function App() {
                           {['servidor', 'entrenante'].includes(participantType) && <option value="no_aplica">No aplica</option>}
                         </select>
                       </div>
-                      {
-                        <div className="participant-field">
-                          <label htmlFor="participant-school-year">Año escolar (último completado)</label>
-                          <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
-                            <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
-                          </select>
-                        </div>
-                      )}
+                      <div className="participant-field">
+                        <label htmlFor="participant-school-year">Año escolar (último completado)</label>
+                        <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
+                          <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
+                        </select>
+                      </div>
                     </>
                   )}
                   <div className="participant-field">
