@@ -105,6 +105,8 @@ export default function App() {
   const [financeCycles, setFinanceCycles] = useState([]);
   const [financeCycleId, setFinanceCycleId] = useState('');
   const [financeFees, setFinanceFees] = useState([]);
+  const [financeFeeConfigs, setFinanceFeeConfigs] = useState([]);
+  const [financeAssigningFees, setFinanceAssigningFees] = useState(false);
   const [financePayments, setFinancePayments] = useState([]);
   const [financeMovements, setFinanceMovements] = useState([]);
   const [financeEnrollments, setFinanceEnrollments] = useState([]);
@@ -794,6 +796,7 @@ export default function App() {
     const [
       { data: cycleRows, error: cycleErr },
       { data: feeRows, error: feeErr },
+      { data: feeConfigRows, error: feeConfigErr },
       { data: paymentRows, error: paymentErr },
       { data: movementRows, error: movementErr },
       { data: enrollmentRows, error: enrollmentErr },
@@ -802,13 +805,14 @@ export default function App() {
     ] = await Promise.all([
       supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
       supabase.from('cuotas_inscripcion').select('id, inscripcion_id, monto_base, monto_final'),
+      supabase.from('configuracion_cuotas').select('ciclo_id, monto_general'),
       supabase.from('pagos_cuotas').select('id, cuota_inscripcion_id, monto, fecha_pago, metodo, referencia').order('fecha_pago', { ascending: false }),
       supabase.from('movimientos_financieros').select('id, ciclo_id, tipo, concepto, monto, fecha, metodo, referencia, observaciones').order('fecha', { ascending: false }),
       supabase.from('inscripciones').select('id, participante_id, ciclo_id, tipo_inscripcion, nivel_id'),
       supabase.from('participantes').select('id, nombre_completo, iglesia_id'),
       supabase.from('iglesias').select('id, nombre, activa').order('nombre', { ascending: true }),
     ]);
-    if (cycleErr || feeErr || paymentErr || movementErr || enrollmentErr || participantErr || localityErr) {
+    if (cycleErr || feeErr || feeConfigErr || paymentErr || movementErr || enrollmentErr || participantErr || localityErr) {
       setFinanceError('No se pudieron cargar todos los datos financieros. Verifica los permisos del perfil de Finanzas.');
     } else {
       setFinanceCycles(cycleRows || []);
@@ -822,6 +826,7 @@ export default function App() {
         localidad: participantMap.get(item.participante_id)?.localidad || 'Sin localidad',
       }]));
       setFinanceEnrollments([...enrollmentMap.values()]);
+      setFinanceFeeConfigs(feeConfigRows || []);
       setFinanceFees((feeRows || []).map((fee) => ({
         ...fee, enrollment: enrollmentMap.get(fee.inscripcion_id),
       })));
@@ -866,6 +871,36 @@ export default function App() {
     setFinanceSaving(false);
   }
 
+  async function handleAssignStandardFees() {
+    if (!financeCycleId) return;
+    const config = financeFeeConfigs.find((item) => item.ciclo_id === financeCycleId);
+    if (!config || Number(config.monto_general) !== 4000) {
+      setFinanceError('La cuota general de este ciclo debe estar configurada en L 4,000.00 antes de asignar las cuotas.');
+      return;
+    }
+    const existingEnrollmentIds = new Set(financeFees.map((fee) => fee.inscripcion_id));
+    const pendingAssignments = financeEnrollments.filter((item) =>
+      item.ciclo_id === financeCycleId
+      && ['joven', 'servidor'].includes(item.tipo_inscripcion)
+      && !existingEnrollmentIds.has(item.id)
+    );
+    if (pendingAssignments.length === 0) {
+      setFinanceError('No hay Jóvenes o Servidores pendientes de asignación de cuota en este ciclo.');
+      return;
+    }
+    setFinanceAssigningFees(true);
+    setFinanceError('');
+    const { error: insertError } = await supabase.from('cuotas_inscripcion').insert(
+      pendingAssignments.map((item) => ({ inscripcion_id: item.id, monto_base: 4000, monto_final: 4000 }))
+    );
+    if (insertError) {
+      setFinanceError('No se pudieron asignar todas las cuotas. No se modificaron las cuotas que ya existían; verifica los permisos e inténtalo de nuevo.');
+    } else {
+      await loadFinanceData();
+    }
+    setFinanceAssigningFees(false);
+  }
+
   async function handleFinancePayment(event) {
     event.preventDefault();
     const amount = Number(financePaymentAmount);
@@ -890,6 +925,7 @@ export default function App() {
   }
 
   const financeCycleFees = financeFees.filter((fee) => fee.enrollment?.ciclo_id === financeCycleId);
+  const financeUnassignedStandardCount = financeEnrollments.filter((item) => item.ciclo_id === financeCycleId && ['joven', 'servidor'].includes(item.tipo_inscripcion) && !financeFees.some((fee) => fee.inscripcion_id === item.id)).length;
   const financeCycleMovements = financeMovements.filter((item) => item.ciclo_id === financeCycleId);
   const financeCyclePayments = financePayments.filter((payment) => financeCycleFees.some((fee) => fee.id === payment.cuota_inscripcion_id));
   const financePaidByQuota = new Map(financeCyclePayments.reduce((map, payment) => {
@@ -1031,6 +1067,14 @@ export default function App() {
           {financeError && <p className="auth-error" role="alert">{financeError}</p>}
           {financeLoading ? <p className="empty-state">Cargando información financiera…</p> : (
             <>
+              {financeUnassignedStandardCount > 0 && (
+                <section className="profile-card finance-records">
+                  <p className="eyebrow">ASIGNACIÓN DE CUOTAS</p>
+                  <p>Hay {financeUnassignedStandardCount} inscripciones de Jóvenes y Servidores sin cuota asignada. Se aplicará L 4,000.00 a cada una. Los Entrenantes y los ajustes individuales se gestionarán por separado.</p>
+                  <button className="primary-button" type="button" onClick={handleAssignStandardFees} disabled={financeAssigningFees || !financeFeeConfigs.some((item) => item.ciclo_id === financeCycleId && Number(item.monto_general) === 4000)}>{financeAssigningFees ? 'Asignando cuotas…' : 'Asignar cuotas de L 4,000'}</button>
+                  {!financeFeeConfigs.some((item) => item.ciclo_id === financeCycleId && Number(item.monto_general) === 4000) && <p className="field-hint">Primero debe configurarse la cuota general de este ciclo en L 4,000.00.</p>}
+                </section>
+              )}
               <div className="finance-summary-grid">
                 <article className="finance-summary-card"><span>Cuotas registradas</span><strong>L {financeTotalFees.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
                 <article className="finance-summary-card"><span>Abonos recibidos</span><strong>L {financeTotalPaid.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
