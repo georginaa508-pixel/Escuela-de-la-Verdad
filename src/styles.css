@@ -284,7 +284,7 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
 .finance-record-row > strong { flex: 0 0 auto; color: #29483d; font-size: 11px; text-align: right; }
 .finance-record-row .finance-expense { color: #a0524b; }
 .finance-record-row .finance-income { color: #245b4d; }
-@media (max-width: 760px) {
+@media (max-width: 560px) {
   .finance-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .finance-columns { grid-template-columns: 1fr; }
 }
