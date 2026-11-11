@@ -1329,8 +1329,7 @@ export default function App() {
                         if (['mensajero', 'cocina'].includes(nextType)) setParticipantSchoolYear('');
                       }
                       if (nextType !== 'entrenante') setParticipantSemester('');
-                      if (['mensajero', 'cocina'].includes(nextType)) {
-                      } else if (nextType === 'joven' && participantEducationSystem === 'no_aplica') {
+                      if (nextType === 'joven' && participantEducationSystem === 'no_aplica') {
                         setParticipantEducationSystem('');
                       }
                       if (!['joven', 'servidor', 'entrenante'].includes(nextType)) {
