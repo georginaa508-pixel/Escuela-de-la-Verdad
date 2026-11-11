@@ -635,7 +635,7 @@ export default function App() {
           tipo_participante: type,
           sistema_educativo: ['mensajero', 'cocina', 'entrenante'].includes(type) ? null : (type === 'joven' && String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? null : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? 'no_aplica' : null),
           anio_escolar: ['mensajero', 'cocina'].includes(type) ? null : importSchoolYear(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')),
-          semestre: type === 'entrenante' ? String(pick('semestre')).trim().replace(/\\s*semestre\\s*/i, '').toUpperCase() || null : null,
+          semestre: type === 'entrenante' ? String(pick('semestre')).trim().replace(/\s*semestre\s*/i, '').toUpperCase() || null : null,
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
