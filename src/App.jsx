@@ -100,6 +100,28 @@ export default function App() {
   const [closingCycleId, setClosingCycleId] = useState('');
   const [closureExceptions, setClosureExceptions] = useState({});
   const [savingCycleClosure, setSavingCycleClosure] = useState(false);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeError, setFinanceError] = useState('');
+  const [financeCycles, setFinanceCycles] = useState([]);
+  const [financeCycleId, setFinanceCycleId] = useState('');
+  const [financeFees, setFinanceFees] = useState([]);
+  const [financePayments, setFinancePayments] = useState([]);
+  const [financeMovements, setFinanceMovements] = useState([]);
+  const [financeEnrollments, setFinanceEnrollments] = useState([]);
+  const [financeMovementType, setFinanceMovementType] = useState('ofrenda');
+  const [financeConcept, setFinanceConcept] = useState('');
+  const [financeAmount, setFinanceAmount] = useState('');
+  const [financeDate, setFinanceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [financeMethod, setFinanceMethod] = useState('efectivo');
+  const [financeReference, setFinanceReference] = useState('');
+  const [financeNotes, setFinanceNotes] = useState('');
+  const [financeSaving, setFinanceSaving] = useState(false);
+  const [financePaymentQuota, setFinancePaymentQuota] = useState('');
+  const [financePaymentAmount, setFinancePaymentAmount] = useState('');
+  const [financePaymentDate, setFinancePaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [financePaymentMethod, setFinancePaymentMethod] = useState('efectivo');
+  const [financePaymentReference, setFinancePaymentReference] = useState('');
+
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -144,7 +166,7 @@ export default function App() {
       .then(({ data, error: profileQueryError }) => {
         if (!active) return;
         if (profileQueryError) {
-          setProfileError('La sesión está activa, pero no se pudo consultar tu perfil. Verifica que tengas un perfil activo en Coordinación General.');
+          setProfileError('La sesión está activa, pero no se pudo consultar tu perfil. Verifica que tengas un perfil activo en el sistema.');
           setProfile(null);
         } else if (!data?.activo) {
           setProfileError('Tu perfil está inactivo. Comunícate con Coordinación General.');
@@ -763,6 +785,115 @@ export default function App() {
     }
   }
 
+
+  async function loadFinanceData() {
+    setFinanceLoading(true);
+    setFinanceError('');
+    const [
+      { data: cycleRows, error: cycleErr },
+      { data: feeRows, error: feeErr },
+      { data: paymentRows, error: paymentErr },
+      { data: movementRows, error: movementErr },
+      { data: enrollmentRows, error: enrollmentErr },
+      { data: participantRows, error: participantErr },
+    ] = await Promise.all([
+      supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
+      supabase.from('cuotas_inscripcion').select('id, inscripcion_id, monto_base, monto_final'),
+      supabase.from('pagos_cuotas').select('id, cuota_inscripcion_id, monto, fecha_pago, metodo, referencia').order('fecha_pago', { ascending: false }),
+      supabase.from('movimientos_financieros').select('id, ciclo_id, tipo, concepto, monto, fecha, metodo, referencia, observaciones').order('fecha', { ascending: false }),
+      supabase.from('inscripciones').select('id, participante_id, ciclo_id, tipo_inscripcion, nivel_id'),
+      supabase.from('participantes').select('id, nombre_completo'),
+    ]);
+    if (cycleErr || feeErr || paymentErr || movementErr || enrollmentErr || participantErr) {
+      setFinanceError('No se pudieron cargar todos los datos financieros. Verifica los permisos del perfil de Finanzas.');
+    } else {
+      setFinanceCycles(cycleRows || []);
+      setFinanceCycleId((current) => current || cycleRows?.[0]?.id || '');
+      const participantMap = new Map((participantRows || []).map((p) => [p.id, p.nombre_completo]));
+      const enrollmentMap = new Map((enrollmentRows || []).map((item) => [item.id, {
+        ...item, participante: participantMap.get(item.participante_id) || 'Participante',
+      }]));
+      setFinanceEnrollments([...enrollmentMap.values()]);
+      setFinanceFees((feeRows || []).map((fee) => ({
+        ...fee, enrollment: enrollmentMap.get(fee.inscripcion_id),
+      })));
+      setFinancePayments(paymentRows || []);
+      setFinanceMovements(movementRows || []);
+    }
+    setFinanceLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeModule === 'Ofrendas y pagos' && profile?.activo
+      && ['coordinacion_general', 'finanzas'].includes(profile.rol)) {
+      loadFinanceData();
+    }
+  }, [activeModule, profile]);
+
+  async function handleFinanceMovement(event) {
+    event.preventDefault();
+    const amount = Number(financeAmount);
+    if (!financeCycleId || !financeConcept.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    setFinanceSaving(true);
+    setFinanceError('');
+    const { error: saveError } = await supabase.from('movimientos_financieros').insert({
+      ciclo_id: financeCycleId,
+      tipo: financeMovementType,
+      concepto: financeConcept.trim(),
+      monto: amount,
+      fecha: financeDate,
+      metodo: financeMethod,
+      referencia: financeReference.trim() || null,
+      observaciones: financeNotes.trim() || null,
+    });
+    if (saveError) {
+      setFinanceError('No se pudo guardar el movimiento. Revisa los permisos y los datos ingresados.');
+    } else {
+      setFinanceConcept('');
+      setFinanceAmount('');
+      setFinanceReference('');
+      setFinanceNotes('');
+      await loadFinanceData();
+    }
+    setFinanceSaving(false);
+  }
+
+  async function handleFinancePayment(event) {
+    event.preventDefault();
+    const amount = Number(financePaymentAmount);
+    if (!financePaymentQuota || !Number.isFinite(amount) || amount <= 0) return;
+    setFinanceSaving(true);
+    setFinanceError('');
+    const { error: saveError } = await supabase.from('pagos_cuotas').insert({
+      cuota_inscripcion_id: financePaymentQuota,
+      monto: amount,
+      fecha_pago: financePaymentDate,
+      metodo: financePaymentMethod,
+      referencia: financePaymentReference.trim() || null,
+    });
+    if (saveError) {
+      setFinanceError('No se pudo registrar el abono. Comprueba que la cuota exista y que el monto sea válido.');
+    } else {
+      setFinancePaymentAmount('');
+      setFinancePaymentReference('');
+      await loadFinanceData();
+    }
+    setFinanceSaving(false);
+  }
+
+  const financeCycleFees = financeFees.filter((fee) => fee.enrollment?.ciclo_id === financeCycleId);
+  const financeCycleMovements = financeMovements.filter((item) => item.ciclo_id === financeCycleId);
+  const financeCycleEnrollmentIds = new Set(financeEnrollments.filter((item) => item.ciclo_id === financeCycleId).map((item) => item.id));
+  const financeCyclePayments = financePayments.filter((payment) => financeCycleFees.some((fee) => fee.id === payment.cuota_inscripcion_id));
+  const financePaidByQuota = new Map(financeCyclePayments.reduce((map, payment) => {
+    map.set(payment.cuota_inscripcion_id, (map.get(payment.cuota_inscripcion_id) || 0) + Number(payment.monto || 0));
+    return map;
+  }, new Map()));
+  const financeTotalFees = financeCycleFees.reduce((sum, fee) => sum + Number(fee.monto_final || 0), 0);
+  const financeTotalPaid = financeCyclePayments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
+  const financeIncome = financeCycleMovements.filter((item) => item.tipo !== 'gasto').reduce((sum, item) => sum + Number(item.monto || 0), 0);
+  const financeExpenses = financeCycleMovements.filter((item) => item.tipo === 'gasto').reduce((sum, item) => sum + Number(item.monto || 0), 0);
+
   async function handleLogin(event) {
     event.preventDefault();
     setError('');
@@ -871,6 +1002,92 @@ export default function App() {
               ))
             )}
           </div>
+        </section>
+
+      ) : activeModule === 'Ofrendas y pagos' ? (
+        <section className="work-section">
+          <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
+          <div className="section-heading">
+            <div><p className="eyebrow">ADMINISTRACIÓN FINANCIERA</p><h2>Finanzas</h2><p className="work-intro">Control de inscripciones, abonos, ofrendas e ingresos y gastos de la Escuela de la Verdad.</p></div>
+            <span className="module-count">{financeCycles.find((cycle) => cycle.id === financeCycleId)?.anio || 'Ciclo'}</span>
+          </div>
+          <div className="finance-toolbar">
+            <label htmlFor="finance-cycle">Ciclo</label>
+            <select id="finance-cycle" value={financeCycleId} onChange={(event) => setFinanceCycleId(event.target.value)}>
+              <option value="">Seleccionar ciclo</option>
+              {financeCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
+            </select>
+            <button className="text-button" type="button" onClick={loadFinanceData} disabled={financeLoading}>Actualizar datos</button>
+          </div>
+          {financeError && <p className="auth-error" role="alert">{financeError}</p>}
+          {financeLoading ? <p className="empty-state">Cargando información financiera…</p> : (
+            <>
+              <div className="finance-summary-grid">
+                <article className="finance-summary-card"><span>Cuotas registradas</span><strong>L {financeTotalFees.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                <article className="finance-summary-card"><span>Abonos recibidos</span><strong>L {financeTotalPaid.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                <article className="finance-summary-card"><span>Ofrendas e ingresos</span><strong>L {financeIncome.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                <article className="finance-summary-card"><span>Gastos registrados</span><strong>L {financeExpenses.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+              </div>
+              <div className="finance-columns">
+                <section className="profile-card">
+                  <p className="eyebrow">REGISTRAR INGRESO O GASTO</p>
+                  <form className="finance-form" onSubmit={handleFinanceMovement}>
+                    <label htmlFor="finance-type">Tipo de movimiento</label>
+                    <select id="finance-type" value={financeMovementType} onChange={(event) => setFinanceMovementType(event.target.value)}>
+                      <option value="ofrenda">Ofrenda</option><option value="otro_ingreso">Otro ingreso</option><option value="gasto">Gasto</option>
+                    </select>
+                    <label htmlFor="finance-concept">Concepto *</label>
+                    <input id="finance-concept" value={financeConcept} onChange={(event) => setFinanceConcept(event.target.value)} placeholder={financeMovementType === 'gasto' ? 'Ej. Alimentación, transporte…' : 'Descripción del ingreso'} required />
+                    <label htmlFor="finance-amount">Monto en lempiras *</label>
+                    <input id="finance-amount" type="number" min="0.01" step="0.01" value={financeAmount} onChange={(event) => setFinanceAmount(event.target.value)} required />
+                    <label htmlFor="finance-date">Fecha *</label>
+                    <input id="finance-date" type="date" value={financeDate} onChange={(event) => setFinanceDate(event.target.value)} required />
+                    <label htmlFor="finance-method">Método</label>
+                    <select id="finance-method" value={financeMethod} onChange={(event) => setFinanceMethod(event.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="otro">Otro</option></select>
+                    <label htmlFor="finance-reference">Referencia / comprobante</label>
+                    <input id="finance-reference" value={financeReference} onChange={(event) => setFinanceReference(event.target.value)} />
+                    <label htmlFor="finance-notes">Observaciones</label>
+                    <textarea id="finance-notes" rows="2" value={financeNotes} onChange={(event) => setFinanceNotes(event.target.value)} />
+                    <button className="primary-button" type="submit" disabled={financeSaving || !financeCycleId || !financeConcept.trim() || Number(financeAmount) <= 0}>{financeSaving ? 'Guardando…' : 'Guardar movimiento'}</button>
+                  </form>
+                </section>
+                <section className="profile-card">
+                  <p className="eyebrow">REGISTRAR ABONO DE INSCRIPCIÓN</p>
+                  <form className="finance-form" onSubmit={handleFinancePayment}>
+                    <label htmlFor="finance-quota">Participante / cuota *</label>
+                    <select id="finance-quota" value={financePaymentQuota} onChange={(event) => setFinancePaymentQuota(event.target.value)} required>
+                      <option value="">Seleccionar cuota</option>
+                      {financeCycleFees.map((fee) => <option key={fee.id} value={fee.id}>{fee.enrollment?.participante || 'Participante'} · Saldo L {(Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0)).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</option>)}
+                    </select>
+                    <label htmlFor="finance-payment-amount">Monto del abono en lempiras *</label>
+                    <input id="finance-payment-amount" type="number" min="0.01" step="0.01" value={financePaymentAmount} onChange={(event) => setFinancePaymentAmount(event.target.value)} required />
+                    <label htmlFor="finance-payment-date">Fecha de pago *</label>
+                    <input id="finance-payment-date" type="date" value={financePaymentDate} onChange={(event) => setFinancePaymentDate(event.target.value)} required />
+                    <label htmlFor="finance-payment-method">Método</label>
+                    <select id="finance-payment-method" value={financePaymentMethod} onChange={(event) => setFinancePaymentMethod(event.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="otro">Otro</option></select>
+                    <label htmlFor="finance-payment-reference">Referencia / comprobante</label>
+                    <input id="finance-payment-reference" value={financePaymentReference} onChange={(event) => setFinancePaymentReference(event.target.value)} />
+                    <button className="primary-button" type="submit" disabled={financeSaving || !financePaymentQuota || Number(financePaymentAmount) <= 0}>{financeSaving ? 'Guardando…' : 'Registrar abono'}</button>
+                    {financeFees.length === 0 && <p className="field-hint">Todavía no hay cuotas creadas para este ciclo. La creación de cuotas y los descuentos individuales se habilitarán con la configuración de tarifas.</p>}
+                  </form>
+                </section>
+              </div>
+              <section className="profile-card finance-records">
+                <p className="eyebrow">MOVIMIENTOS DEL CICLO</p>
+                {financeCycleMovements.length === 0 ? <p className="empty-state">Aún no hay ofrendas, ingresos ni gastos registrados.</p> : financeCycleMovements.map((item) => (
+                  <article className="finance-record-row" key={item.id}><div><strong>{item.concepto}</strong><span>{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-HN')} · {item.tipo === 'gasto' ? 'Gasto' : item.tipo === 'ofrenda' ? 'Ofrenda' : 'Otro ingreso'} · {item.metodo || 'Método no indicado'}</span>{item.referencia && <small>Referencia: {item.referencia}</small>}</div><strong className={item.tipo === 'gasto' ? 'finance-expense' : 'finance-income'}>{item.tipo === 'gasto' ? '−' : '+'} L {Number(item.monto).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                ))}
+              </section>
+              <section className="profile-card finance-records">
+                <p className="eyebrow">CUOTAS Y SALDOS</p>
+                {financeCycleFees.length === 0 ? <p className="empty-state">No hay cuotas asignadas en este ciclo.</p> : financeCycleFees.map((fee) => {
+                  const paid = financePaidByQuota.get(fee.id) || 0;
+                  const balance = Number(fee.monto_final || 0) - paid;
+                  return <article className="finance-record-row" key={fee.id}><div><strong>{fee.enrollment?.participante || 'Participante'}</strong><span>Cuota: L {Number(fee.monto_final).toLocaleString('es-HN', { minimumFractionDigits: 2 })} · Abonado: L {paid.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</span></div><strong>{balance <= 0 ? 'Cancelada' : paid > 0 ? `Saldo L ${balance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}` : `Pendiente L ${balance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}`}</strong></article>;
+                })}
+              </section>
+            </>
+          )}
         </section>
       ) : activeModule === 'Inscripciones' ? (
         <section className="work-section">
@@ -1462,8 +1679,8 @@ export default function App() {
               <span className="module-count">05 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => ['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && setActiveModule(module.title)}>
+              {modules.filter((module) => profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Ofrendas y pagos')).map((module) => (
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || module.title === 'Ofrendas y pagos' ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
