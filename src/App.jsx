@@ -1056,7 +1056,7 @@ export default function App() {
           <button className={`sidebar-link ${activeModule === '' ? 'active' : ''}`} type="button" onClick={() => setActiveModule('')}>
             <span className="sidebar-link-number">⌂</span><span>Inicio</span>
           </button>
-          {modules.filter((module) => profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas')).map((module) => (
+          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas'))).map((module) => (
             <button
               className={`sidebar-link ${activeModule === module.title ? 'active' : ''}`}
               key={module.number}
@@ -1817,10 +1817,10 @@ export default function App() {
           <section className="modules-section">
             <div className="section-heading">
               <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
-              <span className="module-count">05 módulos</span>
+              <span className="module-count">04 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.filter((module) => profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas')).map((module) => (
+              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas'))).map((module) => (
                 <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || module.title === 'Finanzas' ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
