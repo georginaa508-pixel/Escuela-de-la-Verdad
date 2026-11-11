@@ -67,6 +67,7 @@ export default function App() {
   const [participantType, setParticipantType] = useState('');
   const [participantEducationSystem, setParticipantEducationSystem] = useState('');
   const [participantSchoolYear, setParticipantSchoolYear] = useState('');
+  const [participantSemester, setParticipantSemester] = useState('');
   const [participantBirthDate, setParticipantBirthDate] = useState('');
   const [participantSex, setParticipantSex] = useState('');
   const [participantPhone, setParticipantPhone] = useState('');
@@ -188,7 +189,7 @@ export default function App() {
       { data: churchData, error: churchQueryError },
     ] = await Promise.all([
       supabase.from('participantes')
-        .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, sistema_educativo, anio_escolar, activo, created_at')
+        .select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, sistema_educativo, anio_escolar, semestre, activo, created_at')
         .order('nombre_completo', { ascending: true }),
       supabase.from('iglesias')
         .select('id, nombre, activa')
@@ -509,8 +510,9 @@ export default function App() {
         nombre_completo: name,
         iglesia_id: participantChurch || null,
         tipo_participante: participantType,
-        sistema_educativo: hasEducationFields ? (participantEducationSystem || null) : null,
+        sistema_educativo: hasEducationFields && participantType !== 'entrenante' ? (participantEducationSystem || null) : null,
         anio_escolar: hasEducationFields ? (participantSchoolYear || null) : null,
+        semestre: participantType === 'entrenante' ? (participantSemester || null) : null,
         fecha_nacimiento: participantBirthDate || null,
         sexo: participantSex,
         telefono: participantPhone.trim() || null,
@@ -530,6 +532,7 @@ export default function App() {
       setParticipantType('');
       setParticipantEducationSystem('');
       setParticipantSchoolYear('');
+      setParticipantSemester('');
       setParticipantBirthDate('');
       setParticipantSex('');
       setParticipantPhone('');
@@ -630,8 +633,9 @@ export default function App() {
           nombre_completo: name,
           iglesia_id: participantImportChurch,
           tipo_participante: type,
-          sistema_educativo: ['mensajero', 'cocina'].includes(type) ? null : (type === 'joven' && String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? null : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? 'no_aplica' : null),
+          sistema_educativo: ['mensajero', 'cocina', 'entrenante'].includes(type) ? null : (type === 'joven' && String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? null : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('nac') ? 'nacional' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('ame') ? 'americano' : String(pick('sistemaeducativo', 'sistema')).trim().toLowerCase().startsWith('no') ? 'no_aplica' : null),
           anio_escolar: ['mensajero', 'cocina'].includes(type) ? null : importSchoolYear(pick('anioescolar', 'anoescolar', 'gradoescolar', 'ultimoanioaprobado', 'grado')),
+          semestre: type === 'entrenante' ? String(pick('semestre')).trim().replace(/\\s*semestre\\s*/i, '').toUpperCase() || null : null,
           fecha_nacimiento: birth || null,
           sexo: sex,
           telefono: String(pick('telefono', 'telefonodelparticipante', 'contacto')).trim() || null,
@@ -682,8 +686,9 @@ export default function App() {
       nombre_completo: selectedParticipant.nombre_completo.trim(),
       iglesia_id: selectedParticipant.iglesia_id || null,
       tipo_participante: selectedParticipant.tipo_participante,
-      sistema_educativo: hasEducationFields ? (selectedParticipant.sistema_educativo || null) : null,
+      sistema_educativo: hasEducationFields && selectedParticipant.tipo_participante !== 'entrenante' ? (selectedParticipant.sistema_educativo || null) : null,
       anio_escolar: hasEducationFields ? (selectedParticipant.anio_escolar || null) : null,
+      semestre: selectedParticipant.tipo_participante === 'entrenante' ? (selectedParticipant.semestre || null) : null,
       fecha_nacimiento: selectedParticipant.fecha_nacimiento || null,
       sexo: selectedParticipant.sexo,
       telefono: selectedParticipant.telefono?.trim() || null,
@@ -1144,8 +1149,9 @@ export default function App() {
                           setSelectedParticipant({
                             ...selectedParticipant,
                             tipo_participante: nextType,
-                            sistema_educativo: supportType ? '' : (nextType === 'joven' && selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.sistema_educativo),
-                            anio_escolar: supportType || selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.anio_escolar,
+                            sistema_educativo: supportType || nextType === 'entrenante' ? '' : (nextType === 'joven' && selectedParticipant.sistema_educativo === 'no_aplica' ? '' : selectedParticipant.sistema_educativo),
+                            anio_escolar: supportType ? '' : selectedParticipant.anio_escolar,
+                            semestre: nextType === 'entrenante' ? (selectedParticipant.semestre || '') : '',
                             necesita_libro: showBookAndGuidelines ? selectedParticipant.necesita_libro : false,
                             formulario_directrices_firmado: showBookAndGuidelines ? selectedParticipant.formulario_directrices_firmado : false,
                           });
@@ -1153,7 +1159,7 @@ export default function App() {
                         <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                       </select>
                     </div>
-                    {!['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante) && (
+                    {!['mensajero', 'cocina', 'entrenante'].includes(selectedParticipant.tipo_participante) && (
                       <>
                         <div className="participant-field">
                           <label htmlFor="edit-participant-education-system">Sistema educativo</label>
@@ -1169,6 +1175,14 @@ export default function App() {
                           </select>
                         </div>
                       </>
+                    )}
+                    {selectedParticipant.tipo_participante === 'entrenante' && (
+                      <div className="participant-field">
+                        <label htmlFor="edit-participant-semester">Semestre</label>
+                        <select id="edit-participant-semester" value={selectedParticipant.semestre || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, semestre: event.target.value })}>
+                          <option value="">Seleccionar</option><option value="I">I Semestre</option><option value="II">II Semestre</option><option value="III">III Semestre</option><option value="IV">IV Semestre</option>
+                        </select>
+                      </div>
                     )}
                     <div className="participant-field">
                       <label htmlFor="edit-participant-birth">Fecha de nacimiento</label>
@@ -1219,8 +1233,9 @@ export default function App() {
                     <div><dt>Edad actual</dt><dd>{selectedParticipant.fecha_nacimiento ? `${calculateAge(selectedParticipant.fecha_nacimiento)} años` : 'No registrada'}</dd></div>
                     <div><dt>Sexo</dt><dd>{selectedParticipant.sexo === 'F' ? 'Femenino' : selectedParticipant.sexo === 'M' ? 'Masculino' : 'No registrado'}</dd></div>
                     <div><dt>Asiste como</dt><dd>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[selectedParticipant.tipo_participante] || 'Pendiente de selección'}</dd></div>
-                    <div><dt>Sistema educativo</dt><dd>{selectedParticipant.sistema_educativo === 'nacional' ? 'Nacional' : selectedParticipant.sistema_educativo === 'americano' ? 'Americano' : selectedParticipant.sistema_educativo === 'no_aplica' ? 'No aplica' : 'No registrado'}</dd></div>
-                    <div><dt>Año escolar (último completado)</dt><dd>{selectedParticipant.anio_escolar || 'No registrado'}</dd></div>
+                    {selectedParticipant.tipo_participante !== 'entrenante' && !['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante) && <div><dt>Sistema educativo</dt><dd>{selectedParticipant.sistema_educativo === 'nacional' ? 'Nacional' : selectedParticipant.sistema_educativo === 'americano' ? 'Americano' : selectedParticipant.sistema_educativo === 'no_aplica' ? 'No aplica' : 'No registrado'}</dd></div>}
+                    {!['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante) && <div><dt>Año escolar (último completado)</dt><dd>{selectedParticipant.anio_escolar || 'No registrado'}</dd></div>}
+                    {selectedParticipant.tipo_participante === 'entrenante' && <div><dt>Semestre</dt><dd>{selectedParticipant.semestre ? `${selectedParticipant.semestre} Semestre` : 'No registrado'}</dd></div>}
                     <div><dt>Teléfono</dt><dd>{selectedParticipant.telefono || 'No registrado'}</dd></div>
                   </dl>
                 </article>
@@ -1309,9 +1324,12 @@ export default function App() {
                     <select id="participant-type" value={participantType} onChange={(event) => {
                       const nextType = event.target.value;
                       setParticipantType(nextType);
-                      if (['mensajero', 'cocina'].includes(nextType)) {
+                      if (['mensajero', 'cocina', 'entrenante'].includes(nextType)) {
                         setParticipantEducationSystem('');
-                        setParticipantSchoolYear('');
+                        if (['mensajero', 'cocina'].includes(nextType)) setParticipantSchoolYear('');
+                      }
+                      if (nextType !== 'entrenante') setParticipantSemester('');
+                      if (['mensajero', 'cocina'].includes(nextType)) {
                       } else if (nextType === 'joven' && participantEducationSystem === 'no_aplica') {
                         setParticipantEducationSystem('');
                       }
@@ -1323,7 +1341,7 @@ export default function App() {
                       <option value="">Seleccionar</option><option value="joven">Joven</option><option value="servidor">Servidor</option><option value="entrenante">Entrenante</option><option value="mensajero">Mensajero</option><option value="cocina">Cocina</option>
                     </select>
                   </div>
-                  {!['mensajero', 'cocina'].includes(participantType) && (
+                  {!['mensajero', 'cocina', 'entrenante'].includes(participantType) && (
                     <>
                       <div className="participant-field">
                         <label htmlFor="participant-education-system">Sistema educativo</label>
@@ -1339,6 +1357,14 @@ export default function App() {
                         </select>
                       </div>
                     </>
+                  )}
+                  {participantType === 'entrenante' && (
+                    <div className="participant-field">
+                      <label htmlFor="participant-semester">Semestre</label>
+                      <select id="participant-semester" value={participantSemester} onChange={(event) => setParticipantSemester(event.target.value)}>
+                        <option value="">Seleccionar</option><option value="I">I Semestre</option><option value="II">II Semestre</option><option value="III">III Semestre</option><option value="IV">IV Semestre</option>
+                      </select>
+                    </div>
                   )}
                   <div className="participant-field">
                     <label htmlFor="participant-birth">Fecha de nacimiento</label>
@@ -1401,7 +1427,7 @@ export default function App() {
                       <div className="participant-info">
                         <strong>{participant.nombre_completo}</strong>
                         <span>{participant.iglesia || 'Sin iglesia asignada'}{participant.codigo ? ` · Código: ${participant.codigo}` : ''}</span>
-                        <span>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[participant.tipo_participante] || 'Pendiente de selección'}{participant.anio_escolar ? ` · ${participant.anio_escolar}` : ''}</span>
+                        <span>{({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[participant.tipo_participante] || 'Pendiente de selección'}{participant.anio_escolar ? ` · ${participant.anio_escolar}` : ''}{participant.semestre ? ` · ${participant.semestre} Semestre` : ''}</span>
                         {(participant.fecha_nacimiento || participant.sexo) && <span>{participant.fecha_nacimiento ? `Edad: ${calculateAge(participant.fecha_nacimiento)} años` : ''}{participant.fecha_nacimiento && participant.sexo ? ' · ' : ''}{participant.sexo || ''}</span>}
                         <span className={participant.activo ? 'status-active' : 'status-inactive'}>{participant.activo ? 'Activo' : 'Inactivo'}</span>
                       </div>
