@@ -92,6 +92,7 @@ export default function App() {
   const [enrollmentServerLevels, setEnrollmentServerLevels] = useState({});
   const [enrollmentInitialLevels, setEnrollmentInitialLevels] = useState({});
   const [enrollmentSupportDays, setEnrollmentSupportDays] = useState({});
+  const [enrollmentSupportParticipation, setEnrollmentSupportParticipation] = useState({});
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [participationDrafts, setParticipationDrafts] = useState({});
   const [savingParticipationId, setSavingParticipationId] = useState('');
@@ -361,12 +362,14 @@ export default function App() {
       const isSupport = ['mensajero', 'cocina'].includes(tipoInscripcion);
       const level = getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id]);
       const schedule = enrollmentSupportDays[participant.id] || {};
-      if (isSupport && !selectedCycleDates.some((date) => schedule[date])) return null;
+      const supportParticipation = enrollmentSupportParticipation[participant.id] || '';
+      if (isSupport && (!selectedCycleDates.some((date) => schedule[date]) || !['tiempo_completo', 'medio_tiempo'].includes(supportParticipation))) return null;
       return tipoInscripcion && (isSupport || level) ? {
         participante_id: participant.id,
         ciclo_id: enrollmentCycleId,
         nivel_id: level?.id || null,
         tipo_inscripcion: tipoInscripcion,
+        tipo_participacion: isSupport ? supportParticipation : null,
         estado: 'inscrito',
       } : null;
     });
@@ -408,6 +411,7 @@ export default function App() {
       setEnrollmentServerLevels({});
       setEnrollmentInitialLevels({});
       setEnrollmentSupportDays({});
+      setEnrollmentSupportParticipation({});
       await loadEnrollments();
     }
     setSavingEnrollment(false);
@@ -930,6 +934,14 @@ export default function App() {
                           </label>
                           {isSelected && ['mensajero', 'cocina'].includes(type) && (
                             <div className="enrollment-support-days">
+                              <div className="participant-field enrollment-server-choice">
+                                <label htmlFor={`support-participation-${participant.id}`}>Tipo de participación *</label>
+                                <select id={`support-participation-${participant.id}`} value={enrollmentSupportParticipation[participant.id] || ''} onChange={(event) => setEnrollmentSupportParticipation((current) => ({ ...current, [participant.id]: event.target.value }))} required>
+                                  <option value="">Seleccionar</option>
+                                  <option value="tiempo_completo">Tiempo completo</option>
+                                  <option value="medio_tiempo">Tiempo parcial</option>
+                                </select>
+                              </div>
                               <strong>Días de asistencia *</strong>
                               <p className="field-hint">Selecciona las fechas en que asistirá y el horario de cada una.</p>
                               {selectedCycleDates.map((date) => {
@@ -997,7 +1009,7 @@ export default function App() {
               <button className="primary-button" type="submit" disabled={savingEnrollment || enrollmentsLoading || !enrollmentCycleId || !enrollmentChurchId || selectedEligibleParticipants.length === 0 || selectedEligibleParticipants.some((participant) => {
                 const type = getEnrollmentType(participant.id, enrollmentCycleId);
                 const support = ['mensajero', 'cocina'].includes(type);
-                return !type || (!support && !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id])) || (support && !selectedCycleDates.some((date) => enrollmentSupportDays[participant.id]?.[date]));
+                return !type || (!support && !getEnrollmentLevelFor(participant.id, enrollmentCycleId, enrollmentServerLevels[participant.id])) || (support && (!['tiempo_completo', 'medio_tiempo'].includes(enrollmentSupportParticipation[participant.id]) || !selectedCycleDates.some((date) => enrollmentSupportDays[participant.id]?.[date])));
               })}>
                 {savingEnrollment ? 'Guardando…' : 'Confirmar inscripciones'}
               </button>
