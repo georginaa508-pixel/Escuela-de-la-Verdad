@@ -1160,21 +1160,21 @@ export default function App() {
                       </select>
                     </div>
                     {!['mensajero', 'cocina', 'entrenante'].includes(selectedParticipant.tipo_participante) && (
-                      <>
-                        <div className="participant-field">
-                          <label htmlFor="edit-participant-education-system">Sistema educativo</label>
-                          <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value })}>
-                            <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
-                            {['servidor', 'entrenante'].includes(selectedParticipant.tipo_participante) && <option value="no_aplica">No aplica</option>}
-                          </select>
-                        </div>
-                        <div className="participant-field">
-                          <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
-                          <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
-                            <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
-                          </select>
-                        </div>
-                      </>
+                      <div className="participant-field">
+                        <label htmlFor="edit-participant-education-system">Sistema educativo</label>
+                        <select id="edit-participant-education-system" value={selectedParticipant.sistema_educativo || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, sistema_educativo: event.target.value })}>
+                          <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
+                          {selectedParticipant.tipo_participante === 'servidor' && <option value="no_aplica">No aplica</option>}
+                        </select>
+                      </div>
+                    )}
+                    {!['mensajero', 'cocina'].includes(selectedParticipant.tipo_participante) && (
+                      <div className="participant-field">
+                        <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
+                        <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
+                          <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
+                        </select>
+                      </div>
                     )}
                     {selectedParticipant.tipo_participante === 'entrenante' && (
                       <div className="participant-field">
@@ -1341,21 +1341,21 @@ export default function App() {
                     </select>
                   </div>
                   {!['mensajero', 'cocina', 'entrenante'].includes(participantType) && (
-                    <>
-                      <div className="participant-field">
-                        <label htmlFor="participant-education-system">Sistema educativo</label>
-                        <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => setParticipantEducationSystem(event.target.value)}>
-                          <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
-                          {['servidor', 'entrenante'].includes(participantType) && <option value="no_aplica">No aplica</option>}
-                        </select>
-                      </div>
-                      <div className="participant-field">
-                        <label htmlFor="participant-school-year">Año escolar (último completado)</label>
-                        <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
-                          <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
-                        </select>
-                      </div>
-                    </>
+                    <div className="participant-field">
+                      <label htmlFor="participant-education-system">Sistema educativo</label>
+                      <select id="participant-education-system" value={participantEducationSystem} onChange={(event) => setParticipantEducationSystem(event.target.value)}>
+                        <option value="">Seleccionar</option><option value="nacional">Nacional</option><option value="americano">Americano</option>
+                        {participantType === 'servidor' && <option value="no_aplica">No aplica</option>}
+                      </select>
+                    </div>
+                  )}
+                  {!['mensajero', 'cocina'].includes(participantType) && (
+                    <div className="participant-field">
+                      <label htmlFor="participant-school-year">Año escolar (último completado)</label>
+                      <select id="participant-school-year" value={participantSchoolYear} onChange={(event) => setParticipantSchoolYear(event.target.value)}>
+                        <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
+                      </select>
+                    </div>
                   )}
                   {participantType === 'entrenante' && (
                     <div className="participant-field">
