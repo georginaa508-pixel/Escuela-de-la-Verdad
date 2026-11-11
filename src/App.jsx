@@ -108,7 +108,7 @@ export default function App() {
   const [financePayments, setFinancePayments] = useState([]);
   const [financeMovements, setFinanceMovements] = useState([]);
   const [financeEnrollments, setFinanceEnrollments] = useState([]);
-  const [financeMovementType, setFinanceMovementType] = useState('ofrenda');
+  const [financeMovementType, setFinanceMovementType] = useState('cuota');
   const [financeConcept, setFinanceConcept] = useState('');
   const [financeAmount, setFinanceAmount] = useState('');
   const [financeDate, setFinanceDate] = useState(new Date().toISOString().slice(0, 10));
@@ -1031,45 +1031,50 @@ export default function App() {
               </div>
               <div className="finance-columns">
                 <section className="profile-card">
-                  <p className="eyebrow">REGISTRAR INGRESO O GASTO</p>
-                  <form className="finance-form" onSubmit={handleFinanceMovement}>
+                  <p className="eyebrow">REGISTRAR MOVIMIENTO</p>
+                  <form className="finance-form" onSubmit={financeMovementType === 'cuota' ? handleFinancePayment : handleFinanceMovement}>
                     <label htmlFor="finance-type">Tipo de movimiento</label>
                     <select id="finance-type" value={financeMovementType} onChange={(event) => setFinanceMovementType(event.target.value)}>
-                      <option value="ofrenda">Ofrenda</option><option value="otro_ingreso">Otro ingreso</option><option value="gasto">Gasto</option>
+                      <option value="cuota">Cuota de inscripción</option>
+                      <option value="ofrenda">Ofrenda</option>
+                      <option value="otro_ingreso">Otro ingreso</option>
+                      <option value="gasto">Gasto</option>
                     </select>
-                    <label htmlFor="finance-concept">Concepto *</label>
-                    <input id="finance-concept" value={financeConcept} onChange={(event) => setFinanceConcept(event.target.value)} placeholder={financeMovementType === 'gasto' ? 'Ej. Alimentación, transporte…' : 'Descripción del ingreso'} required />
-                    <label htmlFor="finance-amount">Monto en lempiras *</label>
-                    <input id="finance-amount" type="number" min="0.01" step="0.01" value={financeAmount} onChange={(event) => setFinanceAmount(event.target.value)} required />
-                    <label htmlFor="finance-date">Fecha *</label>
-                    <input id="finance-date" type="date" value={financeDate} onChange={(event) => setFinanceDate(event.target.value)} required />
-                    <label htmlFor="finance-method">Método</label>
-                    <select id="finance-method" value={financeMethod} onChange={(event) => setFinanceMethod(event.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="otro">Otro</option></select>
-                    <label htmlFor="finance-reference">Referencia / comprobante</label>
-                    <input id="finance-reference" value={financeReference} onChange={(event) => setFinanceReference(event.target.value)} />
-                    <label htmlFor="finance-notes">Observaciones</label>
-                    <textarea id="finance-notes" rows="2" value={financeNotes} onChange={(event) => setFinanceNotes(event.target.value)} />
-                    <button className="primary-button" type="submit" disabled={financeSaving || !financeCycleId || !financeConcept.trim() || Number(financeAmount) <= 0}>{financeSaving ? 'Guardando…' : 'Guardar movimiento'}</button>
-                  </form>
-                </section>
-                <section className="profile-card">
-                  <p className="eyebrow">REGISTRAR ABONO DE INSCRIPCIÓN</p>
-                  <form className="finance-form" onSubmit={handleFinancePayment}>
-                    <label htmlFor="finance-quota">Participante / cuota *</label>
-                    <select id="finance-quota" value={financePaymentQuota} onChange={(event) => setFinancePaymentQuota(event.target.value)} required>
-                      <option value="">Seleccionar cuota</option>
-                      {financeCycleFees.map((fee) => <option key={fee.id} value={fee.id}>{fee.enrollment?.participante || 'Participante'} · Saldo L {(Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0)).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</option>)}
-                    </select>
-                    <label htmlFor="finance-payment-amount">Monto del abono en lempiras *</label>
-                    <input id="finance-payment-amount" type="number" min="0.01" step="0.01" value={financePaymentAmount} onChange={(event) => setFinancePaymentAmount(event.target.value)} required />
-                    <label htmlFor="finance-payment-date">Fecha de pago *</label>
-                    <input id="finance-payment-date" type="date" value={financePaymentDate} onChange={(event) => setFinancePaymentDate(event.target.value)} required />
-                    <label htmlFor="finance-payment-method">Método</label>
-                    <select id="finance-payment-method" value={financePaymentMethod} onChange={(event) => setFinancePaymentMethod(event.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="otro">Otro</option></select>
-                    <label htmlFor="finance-payment-reference">Referencia / comprobante</label>
-                    <input id="finance-payment-reference" value={financePaymentReference} onChange={(event) => setFinancePaymentReference(event.target.value)} />
-                    <button className="primary-button" type="submit" disabled={financeSaving || !financePaymentQuota || Number(financePaymentAmount) <= 0}>{financeSaving ? 'Guardando…' : 'Registrar abono'}</button>
-                    {financeFees.length === 0 && <p className="field-hint">Todavía no hay cuotas creadas para este ciclo. La creación de cuotas y los descuentos individuales se habilitarán con la configuración de tarifas.</p>}
+                    {financeMovementType === 'cuota' ? (
+                      <>
+                        <label htmlFor="finance-quota">Participante / cuota *</label>
+                        <select id="finance-quota" value={financePaymentQuota} onChange={(event) => setFinancePaymentQuota(event.target.value)} required>
+                          <option value="">Seleccionar participante</option>
+                          {financeCycleFees.map((fee) => <option key={fee.id} value={fee.id}>{fee.enrollment?.participante || 'Participante'} · Saldo L {(Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0)).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</option>)}
+                        </select>
+                        <label htmlFor="finance-payment-amount">Monto del pago / abono en lempiras *</label>
+                        <input id="finance-payment-amount" type="number" min="0.01" step="0.01" value={financePaymentAmount} onChange={(event) => setFinancePaymentAmount(event.target.value)} required />
+                        <label htmlFor="finance-payment-date">Fecha de pago *</label>
+                        <input id="finance-payment-date" type="date" value={financePaymentDate} onChange={(event) => setFinancePaymentDate(event.target.value)} required />
+                        <label htmlFor="finance-payment-method">Método</label>
+                        <select id="finance-payment-method" value={financePaymentMethod} onChange={(event) => setFinancePaymentMethod(event.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="otro">Otro</option></select>
+                        <label htmlFor="finance-payment-reference">Referencia / comprobante</label>
+                        <input id="finance-payment-reference" value={financePaymentReference} onChange={(event) => setFinancePaymentReference(event.target.value)} />
+                        <button className="primary-button" type="submit" disabled={financeSaving || !financePaymentQuota || Number(financePaymentAmount) <= 0}>{financeSaving ? 'Guardando…' : 'Registrar pago de cuota'}</button>
+                        {financeFees.length === 0 && <p className="field-hint">Todavía no hay cuotas creadas para este ciclo. Primero deben asignarse las cuotas a los participantes.</p>}
+                      </>
+                    ) : (
+                      <>
+                        <label htmlFor="finance-concept">Concepto *</label>
+                        <input id="finance-concept" value={financeConcept} onChange={(event) => setFinanceConcept(event.target.value)} placeholder={financeMovementType === 'gasto' ? 'Ej. Alimentación, transporte…' : 'Descripción del ingreso'} required />
+                        <label htmlFor="finance-amount">Monto en lempiras *</label>
+                        <input id="finance-amount" type="number" min="0.01" step="0.01" value={financeAmount} onChange={(event) => setFinanceAmount(event.target.value)} required />
+                        <label htmlFor="finance-date">Fecha *</label>
+                        <input id="finance-date" type="date" value={financeDate} onChange={(event) => setFinanceDate(event.target.value)} required />
+                        <label htmlFor="finance-method">Método</label>
+                        <select id="finance-method" value={financeMethod} onChange={(event) => setFinanceMethod(event.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="otro">Otro</option></select>
+                        <label htmlFor="finance-reference">Referencia / comprobante</label>
+                        <input id="finance-reference" value={financeReference} onChange={(event) => setFinanceReference(event.target.value)} />
+                        <label htmlFor="finance-notes">Observaciones</label>
+                        <textarea id="finance-notes" rows="2" value={financeNotes} onChange={(event) => setFinanceNotes(event.target.value)} />
+                        <button className="primary-button" type="submit" disabled={financeSaving || !financeCycleId || !financeConcept.trim() || Number(financeAmount) <= 0}>{financeSaving ? 'Guardando…' : 'Guardar movimiento'}</button>
+                      </>
+                    )}
                   </form>
                 </section>
               </div>
