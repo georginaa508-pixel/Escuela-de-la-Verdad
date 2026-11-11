@@ -119,6 +119,7 @@ export default function App() {
   const [financeEnrollments, setFinanceEnrollments] = useState([]);
   const [financeLocalities, setFinanceLocalities] = useState([]);
   const [financeLocalityId, setFinanceLocalityId] = useState('');
+  const [financeBalancesLocalityId, setFinanceBalancesLocalityId] = useState('');
   const [financeMovementType, setFinanceMovementType] = useState('cuota');
   const [financeConcept, setFinanceConcept] = useState('');
   const [financeAmount, setFinanceAmount] = useState('');
@@ -957,6 +958,7 @@ export default function App() {
   }
 
   const financeCycleFees = financeFees.filter((fee) => fee.enrollment?.ciclo_id === financeCycleId);
+  const financeFilteredCycleFees = financeCycleFees.filter((fee) => !financeBalancesLocalityId || fee.enrollment?.iglesia_id === financeBalancesLocalityId);
   const financeUnassignedStandardCount = financeEnrollments.filter((item) => item.ciclo_id === financeCycleId && ['joven', 'servidor'].includes(item.tipo_inscripcion) && !financeFees.some((fee) => fee.inscripcion_id === item.id)).length;
   const financeCycleMovements = financeMovements.filter((item) => item.ciclo_id === financeCycleId);
   const financeCyclePayments = financePayments.filter((payment) => financeCycleFees.some((fee) => fee.id === payment.cuota_inscripcion_id));
@@ -1221,7 +1223,14 @@ export default function App() {
               </div>
               <section className="profile-card finance-records">
                 <p className="eyebrow">CUOTAS Y SALDOS</p>
-                {financeCycleFees.length === 0 ? <p className="empty-state">No hay cuotas asignadas en este ciclo.</p> : financeCycleFees.map((fee) => {
+                <div className="finance-form">
+                  <label htmlFor="finance-balances-locality">Filtrar por localidad</label>
+                  <select id="finance-balances-locality" value={financeBalancesLocalityId} onChange={(event) => setFinanceBalancesLocalityId(event.target.value)}>
+                    <option value="">Todas las localidades</option>
+                    {financeLocalities.map((locality) => <option key={locality.id} value={locality.id}>{locality.nombre}</option>)}
+                  </select>
+                </div>
+                {financeFilteredCycleFees.length === 0 ? <p className="empty-state">{financeBalancesLocalityId ? 'No hay cuotas asignadas en esta localidad para el ciclo seleccionado.' : 'No hay cuotas asignadas en este ciclo.'}</p> : financeFilteredCycleFees.map((fee) => {
                   const paid = financePaidByQuota.get(fee.id) || 0;
                   const balance = Number(fee.monto_final || 0) - paid;
                   return <article className="finance-record-row" key={fee.id}><div><strong>{fee.enrollment?.participante || 'Participante'}</strong><span>Cuota: L {Number(fee.monto_final).toLocaleString('es-HN', { minimumFractionDigits: 2 })} · Abonado: L {paid.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</span></div><strong>{balance <= 0 ? 'Cancelada' : paid > 0 ? `Saldo L ${balance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}` : `Pendiente L ${balance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}`}</strong></article>;
