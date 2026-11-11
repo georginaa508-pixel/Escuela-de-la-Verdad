@@ -6,7 +6,7 @@ const modules = [
   { number: '01', title: 'Iglesias', description: 'Registro y consulta de iglesias participantes.' },
   { number: '02', title: 'Participantes', description: 'Datos y seguimiento de cada participante.' },
   { number: '03', title: 'Inscripciones', description: 'Inscripciones, niveles y estado de participación.' },
-  { number: '04', title: 'Ofrendas y pagos', description: 'Ofrendas, cuotas y abonos registrados.' },
+  { number: '04', title: 'Finanzas', description: 'Inscripciones, ofrendas, ingresos y gastos.' },
   { number: '05', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
 ];
 
@@ -824,7 +824,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (activeModule === 'Ofrendas y pagos' && profile?.activo
+    if (activeModule === 'Finanzas' && profile?.activo
       && ['coordinacion_general', 'finanzas'].includes(profile.rol)) {
       loadFinanceData();
     }
@@ -883,7 +883,6 @@ export default function App() {
 
   const financeCycleFees = financeFees.filter((fee) => fee.enrollment?.ciclo_id === financeCycleId);
   const financeCycleMovements = financeMovements.filter((item) => item.ciclo_id === financeCycleId);
-  const financeCycleEnrollmentIds = new Set(financeEnrollments.filter((item) => item.ciclo_id === financeCycleId).map((item) => item.id));
   const financeCyclePayments = financePayments.filter((payment) => financeCycleFees.some((fee) => fee.id === payment.cuota_inscripcion_id));
   const financePaidByQuota = new Map(financeCyclePayments.reduce((map, payment) => {
     map.set(payment.cuota_inscripcion_id, (map.get(payment.cuota_inscripcion_id) || 0) + Number(payment.monto || 0));
@@ -891,6 +890,7 @@ export default function App() {
   }, new Map()));
   const financeTotalFees = financeCycleFees.reduce((sum, fee) => sum + Number(fee.monto_final || 0), 0);
   const financeTotalPaid = financeCyclePayments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
+  const financeBalance = Math.max(0, financeTotalFees - financeTotalPaid);
   const financeIncome = financeCycleMovements.filter((item) => item.tipo !== 'gasto').reduce((sum, item) => sum + Number(item.monto || 0), 0);
   const financeExpenses = financeCycleMovements.filter((item) => item.tipo === 'gasto').reduce((sum, item) => sum + Number(item.monto || 0), 0);
 
@@ -1004,7 +1004,7 @@ export default function App() {
           </div>
         </section>
 
-      ) : activeModule === 'Ofrendas y pagos' ? (
+      ) : activeModule === 'Finanzas' ? (
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
           <div className="section-heading">
@@ -1025,6 +1025,7 @@ export default function App() {
               <div className="finance-summary-grid">
                 <article className="finance-summary-card"><span>Cuotas registradas</span><strong>L {financeTotalFees.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
                 <article className="finance-summary-card"><span>Abonos recibidos</span><strong>L {financeTotalPaid.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                <article className="finance-summary-card"><span>Saldo pendiente de cuotas</span><strong>L {financeBalance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
                 <article className="finance-summary-card"><span>Ofrendas e ingresos</span><strong>L {financeIncome.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
                 <article className="finance-summary-card"><span>Gastos registrados</span><strong>L {financeExpenses.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
               </div>
@@ -1679,8 +1680,8 @@ export default function App() {
               <span className="module-count">05 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.filter((module) => profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Ofrendas y pagos')).map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || module.title === 'Ofrendas y pagos' ? setActiveModule(module.title) : null}>
+              {modules.filter((module) => profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas')).map((module) => (
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || module.title === 'Finanzas' ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
