@@ -108,6 +108,8 @@ export default function App() {
   const [financePayments, setFinancePayments] = useState([]);
   const [financeMovements, setFinanceMovements] = useState([]);
   const [financeEnrollments, setFinanceEnrollments] = useState([]);
+  const [financeLocalities, setFinanceLocalities] = useState([]);
+  const [financeLocalityId, setFinanceLocalityId] = useState('');
   const [financeMovementType, setFinanceMovementType] = useState('cuota');
   const [financeConcept, setFinanceConcept] = useState('');
   const [financeAmount, setFinanceAmount] = useState('');
@@ -796,22 +798,28 @@ export default function App() {
       { data: movementRows, error: movementErr },
       { data: enrollmentRows, error: enrollmentErr },
       { data: participantRows, error: participantErr },
+      { data: localityRows, error: localityErr },
     ] = await Promise.all([
       supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
       supabase.from('cuotas_inscripcion').select('id, inscripcion_id, monto_base, monto_final'),
       supabase.from('pagos_cuotas').select('id, cuota_inscripcion_id, monto, fecha_pago, metodo, referencia').order('fecha_pago', { ascending: false }),
       supabase.from('movimientos_financieros').select('id, ciclo_id, tipo, concepto, monto, fecha, metodo, referencia, observaciones').order('fecha', { ascending: false }),
       supabase.from('inscripciones').select('id, participante_id, ciclo_id, tipo_inscripcion, nivel_id'),
-      supabase.from('participantes').select('id, nombre_completo'),
+      supabase.from('participantes').select('id, nombre_completo, iglesia_id'),
+      supabase.from('iglesias').select('id, nombre, activa').order('nombre', { ascending: true }),
     ]);
-    if (cycleErr || feeErr || paymentErr || movementErr || enrollmentErr || participantErr) {
+    if (cycleErr || feeErr || paymentErr || movementErr || enrollmentErr || participantErr || localityErr) {
       setFinanceError('No se pudieron cargar todos los datos financieros. Verifica los permisos del perfil de Finanzas.');
     } else {
       setFinanceCycles(cycleRows || []);
       setFinanceCycleId((current) => current || cycleRows?.[0]?.id || '');
-      const participantMap = new Map((participantRows || []).map((p) => [p.id, p.nombre_completo]));
+      setFinanceLocalities((localityRows || []).filter((item) => item.activa !== false));
+      const localityMap = new Map((localityRows || []).map((item) => [item.id, item.nombre]));
+      const participantMap = new Map((participantRows || []).map((p) => [p.id, { nombre: p.nombre_completo, iglesia_id: p.iglesia_id, localidad: localityMap.get(p.iglesia_id) || 'Sin localidad' }]));
       const enrollmentMap = new Map((enrollmentRows || []).map((item) => [item.id, {
-        ...item, participante: participantMap.get(item.participante_id) || 'Participante',
+        ...item, participante: participantMap.get(item.participante_id)?.nombre || 'Participante',
+        iglesia_id: participantMap.get(item.participante_id)?.iglesia_id || '',
+        localidad: participantMap.get(item.participante_id)?.localidad || 'Sin localidad',
       }]));
       setFinanceEnrollments([...enrollmentMap.values()]);
       setFinanceFees((feeRows || []).map((fee) => ({
@@ -882,6 +890,7 @@ export default function App() {
   }
 
   const financeCycleFees = financeFees.filter((fee) => fee.enrollment?.ciclo_id === financeCycleId);
+  const financePendingFees = financeCycleFees.filter((fee) => Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0) > 0 && (!financeLocalityId || fee.enrollment?.iglesia_id === financeLocalityId));
   const financeCycleMovements = financeMovements.filter((item) => item.ciclo_id === financeCycleId);
   const financeCyclePayments = financePayments.filter((payment) => financeCycleFees.some((fee) => fee.id === payment.cuota_inscripcion_id));
   const financePaidByQuota = new Map(financeCyclePayments.reduce((map, payment) => {
@@ -1042,11 +1051,17 @@ export default function App() {
                     </select>
                     {financeMovementType === 'cuota' ? (
                       <>
-                        <label htmlFor="finance-quota">Participante / cuota *</label>
-                        <select id="finance-quota" value={financePaymentQuota} onChange={(event) => setFinancePaymentQuota(event.target.value)} required>
-                          <option value="">Seleccionar participante</option>
-                          {financeCycleFees.map((fee) => <option key={fee.id} value={fee.id}>{fee.enrollment?.participante || 'Participante'} · Saldo L {(Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0)).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</option>)}
+                        <label htmlFor="finance-locality">Localidad / iglesia *</label>
+                        <select id="finance-locality" value={financeLocalityId} onChange={(event) => { setFinanceLocalityId(event.target.value); setFinancePaymentQuota(''); }} required>
+                          <option value="">Seleccionar localidad</option>
+                          {financeLocalities.map((locality) => <option key={locality.id} value={locality.id}>{locality.nombre}</option>)}
                         </select>
+                        <label htmlFor="finance-quota">Participantes pendientes de pago *</label>
+                        <select id="finance-quota" value={financePaymentQuota} onChange={(event) => setFinancePaymentQuota(event.target.value)} required disabled={!financeLocalityId}>
+                          <option value="">{financeLocalityId ? 'Seleccionar participante pendiente' : 'Primero selecciona una localidad'}</option>
+                          {financePendingFees.map((fee) => <option key={fee.id} value={fee.id}>{fee.enrollment?.participante || 'Participante'} · Saldo L {(Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0)).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</option>)}
+                        </select>
+                        {financeLocalityId && financePendingFees.length === 0 && <p className="field-hint">No hay participantes con cuotas pendientes en esta localidad para el ciclo seleccionado.</p>}
                         <label htmlFor="finance-payment-amount">Monto del pago / abono en lempiras *</label>
                         <input id="finance-payment-amount" type="number" min="0.01" step="0.01" value={financePaymentAmount} onChange={(event) => setFinancePaymentAmount(event.target.value)} required />
                         <label htmlFor="finance-payment-date">Fecha de pago *</label>
