@@ -108,6 +108,7 @@ export default function App() {
   const [financeFeeConfigs, setFinanceFeeConfigs] = useState([]);
   const [financeGeneralFeeAmount, setFinanceGeneralFeeAmount] = useState('4000');
   const [financeSavingFeeConfig, setFinanceSavingFeeConfig] = useState(false);
+  const [showFinanceFeeConfig, setShowFinanceFeeConfig] = useState(false);
   const [financeAssigningFees, setFinanceAssigningFees] = useState(false);
   const [financePayments, setFinancePayments] = useState([]);
   const [financeMovements, setFinanceMovements] = useState([]);
@@ -893,6 +894,7 @@ export default function App() {
       setFinanceError('No se pudo guardar la cuota general. Verifica los permisos del perfil.');
     } else {
       await loadFinanceData();
+      setShowFinanceFeeConfig(false);
     }
     setFinanceSavingFeeConfig(false);
   }
@@ -1090,15 +1092,22 @@ export default function App() {
             </select>
             <button className="text-button" type="button" onClick={loadFinanceData} disabled={financeLoading}>Actualizar datos</button>
           </div>
-          <section className="profile-card finance-records">
-            <p className="eyebrow">CONFIGURACIÓN DE CUOTAS</p>
-            <form className="finance-form" onSubmit={handleSaveGeneralFeeConfig}>
-              <label htmlFor="finance-general-fee">Cuota general del ciclo seleccionado (lempiras)</label>
-              <input id="finance-general-fee" type="number" min="0.01" step="0.01" value={financeGeneralFeeAmount} onChange={(event) => setFinanceGeneralFeeAmount(event.target.value)} required />
-              <p className="field-hint">Esta será la cuota base para Jóvenes y Servidores. Los descuentos, becas y la cuota reducida de Entrenantes se gestionarán individualmente o por categoría.</p>
-              <button className="primary-button" type="submit" disabled={financeSavingFeeConfig || !financeCycleId}>{financeSavingFeeConfig ? 'Guardando configuración…' : 'Guardar cuota general'}</button>
-            </form>
-          </section>
+          <div className="finance-config-toggle">
+            <button className="text-button" type="button" onClick={() => setShowFinanceFeeConfig((current) => !current)} aria-expanded={showFinanceFeeConfig}>
+              {showFinanceFeeConfig ? 'Cerrar configuración de cuotas' : 'Configurar cuotas'}
+            </button>
+          </div>
+          {showFinanceFeeConfig && (
+            <section className="profile-card finance-records">
+              <p className="eyebrow">CONFIGURACIÓN DE CUOTAS</p>
+              <form className="finance-form" onSubmit={handleSaveGeneralFeeConfig}>
+                <label htmlFor="finance-general-fee">Cuota general del ciclo seleccionado (lempiras)</label>
+                <input id="finance-general-fee" type="number" min="0.01" step="0.01" value={financeGeneralFeeAmount} onChange={(event) => setFinanceGeneralFeeAmount(event.target.value)} required />
+                <p className="field-hint">Esta será la cuota base para Jóvenes y Servidores. Los descuentos, becas y la cuota reducida de Entrenantes se gestionarán individualmente o por categoría.</p>
+                <button className="primary-button" type="submit" disabled={financeSavingFeeConfig || !financeCycleId}>{financeSavingFeeConfig ? 'Guardando configuración…' : 'Guardar cuota general'}</button>
+              </form>
+            </section>
+          )}
           {financeError && <p className="auth-error" role="alert">{financeError}</p>}
           {financeLoading ? <p className="empty-state">Cargando información financiera…</p> : (
             <>
