@@ -50,6 +50,10 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [activeModule, setActiveModule] = useState('');
+
+  useEffect(() => {
+    if (activeModule) window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeModule]);
   const [churches, setChurches] = useState([]);
   const [churchesLoading, setChurchesLoading] = useState(false);
   const [churchError, setChurchError] = useState('');
