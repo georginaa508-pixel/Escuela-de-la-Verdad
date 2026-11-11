@@ -1185,12 +1185,22 @@ export default function App() {
                   </form>
                 </section>
               </div>
-              <section className="profile-card finance-records">
-                <p className="eyebrow">MOVIMIENTOS DEL CICLO</p>
-                {financeCycleMovements.length === 0 ? <p className="empty-state">Aún no hay ofrendas, ingresos ni gastos registrados.</p> : financeCycleMovements.map((item) => (
-                  <article className="finance-record-row" key={item.id}><div><strong>{item.concepto}</strong><span>{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-HN')} · {item.tipo === 'gasto' ? 'Gasto' : item.tipo === 'ofrenda' ? 'Ofrenda' : 'Otro ingreso'} · {item.metodo || 'Método no indicado'}</span>{item.referencia && <small>Referencia: {item.referencia}</small>}</div><strong className={item.tipo === 'gasto' ? 'finance-expense' : 'finance-income'}>{item.tipo === 'gasto' ? '−' : '+'} L {Number(item.monto).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
-                ))}
-              </section>
+              <div className="finance-columns">
+                <section className="profile-card finance-records">
+                  <p className="eyebrow">INGRESOS</p>
+                  <p className="field-hint">Ofrendas y otros ingresos registrados.</p>
+                  {financeCycleMovements.filter((item) => item.tipo !== 'gasto').length === 0 ? <p className="empty-state">Aún no hay ingresos registrados.</p> : financeCycleMovements.filter((item) => item.tipo !== 'gasto').map((item) => (
+                    <article className="finance-record-row" key={item.id}><div><strong>{item.concepto}</strong><span>{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-HN')} · {item.tipo === 'ofrenda' ? 'Ofrenda' : 'Otro ingreso'} · {item.metodo || 'Método no indicado'}</span>{item.referencia && <small>Referencia: {item.referencia}</small>}</div><strong className="finance-income">+ L {Number(item.monto).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                  ))}
+                </section>
+                <section className="profile-card finance-records">
+                  <p className="eyebrow">EGRESOS</p>
+                  <p className="field-hint">Gastos registrados durante el ciclo.</p>
+                  {financeCycleMovements.filter((item) => item.tipo === 'gasto').length === 0 ? <p className="empty-state">Aún no hay egresos registrados.</p> : financeCycleMovements.filter((item) => item.tipo === 'gasto').map((item) => (
+                    <article className="finance-record-row" key={item.id}><div><strong>{item.concepto}</strong><span>{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-HN')} · {item.metodo || 'Método no indicado'}</span>{item.referencia && <small>Referencia: {item.referencia}</small>}</div><strong className="finance-expense">− L {Number(item.monto).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</strong></article>
+                  ))}
+                </section>
+              </div>
               <section className="profile-card finance-records">
                 <p className="eyebrow">CUOTAS Y SALDOS</p>
                 {financeCycleFees.length === 0 ? <p className="empty-state">No hay cuotas asignadas en este ciclo.</p> : financeCycleFees.map((fee) => {
