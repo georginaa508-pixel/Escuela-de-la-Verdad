@@ -1089,7 +1089,7 @@ export default function App() {
                   <div className="enrollment-main">
                     <strong>{enrollment.participante}</strong>
                     <span>{enrollment.codigo ? `${enrollment.codigo} · ` : ''}{enrollment.iglesia || 'Sin iglesia asignada'}</span>
-                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {enrollment.tipo_inscripcion === 'servidor' ? 'Servidor' : 'Joven'} · {enrollment.nivel} · {(enrollment.estado || 'inscrito').replace('_', ' ')} · {enrollment.tipo_participacion === 'tiempo_completo' ? 'Tiempo completo' : enrollment.tipo_participacion === 'medio_tiempo' ? 'Medio tiempo' : enrollment.tipo_participacion === 'no_asistio' ? 'No asistió' : 'Pendiente de cierre'}</span>
+                    <span>{enrollment.anio ?? 'Ciclo no disponible'} · {({ joven: 'Joven', servidor: 'Servidor', entrenante: 'Entrenante', mensajero: 'Mensajero', cocina: 'Cocina' })[enrollment.tipo_inscripcion] || 'Clasificación pendiente'}{['mensajero', 'cocina'].includes(enrollment.tipo_inscripcion) ? '' : ` · ${enrollment.nivel}`} · {(enrollment.estado || 'inscrito').replace('_', ' ')} · {enrollment.tipo_participacion === 'tiempo_completo' ? 'Tiempo completo' : enrollment.tipo_participacion === 'medio_tiempo' ? 'Tiempo parcial' : enrollment.tipo_participacion === 'no_asistio' ? 'No asistió' : 'Pendiente de cierre'}</span>
                   </div>
                 </article>
               ))
