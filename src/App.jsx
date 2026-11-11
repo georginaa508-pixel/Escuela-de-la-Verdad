@@ -1050,6 +1050,24 @@ export default function App() {
         </div>
       </header>
 
+      <div className="app-layout">
+        <aside className="module-sidebar" aria-label="Navegación principal">
+          <p className="sidebar-label">MENÚ PRINCIPAL</p>
+          <button className={`sidebar-link ${activeModule === '' ? 'active' : ''}`} type="button" onClick={() => setActiveModule('')}>
+            <span className="sidebar-link-number">⌂</span><span>Inicio</span>
+          </button>
+          {modules.filter((module) => profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas')).map((module) => (
+            <button
+              className={`sidebar-link ${activeModule === module.title ? 'active' : ''}`}
+              key={module.number}
+              type="button"
+              onClick={() => setActiveModule(module.title)}
+            >
+              <span className="sidebar-link-number">{module.number}</span><span>{module.title}</span>
+            </button>
+          ))}
+        </aside>
+        <div className="app-main-content">
       {activeModule === 'Iglesias' ? (
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
@@ -1814,6 +1832,8 @@ export default function App() {
           </section>
         </>
       )}
+        </div>
+      </div>
       <footer>Escuela de la Verdad · Honduras</footer>
     </main>
   );
