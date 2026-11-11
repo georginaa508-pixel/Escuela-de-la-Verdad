@@ -890,13 +890,13 @@ export default function App() {
   }
 
   const financeCycleFees = financeFees.filter((fee) => fee.enrollment?.ciclo_id === financeCycleId);
-  const financePendingFees = financeCycleFees.filter((fee) => Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0) > 0 && (!financeLocalityId || fee.enrollment?.iglesia_id === financeLocalityId));
   const financeCycleMovements = financeMovements.filter((item) => item.ciclo_id === financeCycleId);
   const financeCyclePayments = financePayments.filter((payment) => financeCycleFees.some((fee) => fee.id === payment.cuota_inscripcion_id));
   const financePaidByQuota = new Map(financeCyclePayments.reduce((map, payment) => {
     map.set(payment.cuota_inscripcion_id, (map.get(payment.cuota_inscripcion_id) || 0) + Number(payment.monto || 0));
     return map;
   }, new Map()));
+  const financePendingFees = financeCycleFees.filter((fee) => Number(fee.monto_final || 0) - (financePaidByQuota.get(fee.id) || 0) > 0 && (!financeLocalityId || fee.enrollment?.iglesia_id === financeLocalityId));
   const financeTotalFees = financeCycleFees.reduce((sum, fee) => sum + Number(fee.monto_final || 0), 0);
   const financeTotalPaid = financeCyclePayments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
   const financeBalance = Math.max(0, financeTotalFees - financeTotalPaid);
