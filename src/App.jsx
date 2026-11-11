@@ -374,7 +374,7 @@ export default function App() {
       } : null;
     });
     if (rows.some((row) => !row)) {
-      setEnrollmentError('Confirma el nivel de cada Joven, Servidor o Entrenante y selecciona al menos un día para cada Mensajero o persona de Cocina.');
+      setEnrollmentError('Confirma el nivel de cada Joven, Servidor o Entrenante. Para cada Mensajero o persona de Cocina, selecciona tiempo completo o parcial y al menos un día de asistencia.');
       return;
     }
 
@@ -880,14 +880,14 @@ export default function App() {
             <div className="participant-fields enrollment-fields">
               <div className="participant-field">
                 <label htmlFor="enrollment-cycle">Ciclo *</label>
-                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialLevels({}); }} required>
+                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialLevels({}); setEnrollmentSupportDays({}); setEnrollmentSupportParticipation({}); }} required>
                   <option value="">Seleccionar ciclo</option>
                   {enrollmentCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
                 </select>
               </div>
               <div className="participant-field">
                 <label htmlFor="enrollment-church">Iglesia / localidad *</label>
-                <select id="enrollment-church" value={enrollmentChurchId} onChange={(event) => { setEnrollmentChurchId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); }} required>
+                <select id="enrollment-church" value={enrollmentChurchId} onChange={(event) => { setEnrollmentChurchId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentSupportDays({}); setEnrollmentSupportParticipation({}); }} required>
                   <option value="">Seleccionar iglesia</option>
                   {churches.filter((church) => church.activa).map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
                 </select>
