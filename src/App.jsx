@@ -1162,14 +1162,12 @@ export default function App() {
                             {['servidor', 'entrenante'].includes(selectedParticipant.tipo_participante) && <option value="no_aplica">No aplica</option>}
                           </select>
                         </div>
-                        {
-                          <div className="participant-field">
-                            <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
-                            <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
-                              <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
-                            </select>
-                          </div>
-                        )}
+                        <div className="participant-field">
+                          <label htmlFor="edit-participant-school-year">Año escolar (último completado)</label>
+                          <select id="edit-participant-school-year" value={selectedParticipant.anio_escolar || ''} onChange={(event) => setSelectedParticipant({ ...selectedParticipant, anio_escolar: event.target.value })}>
+                            <option value="">Seleccionar</option><option value="Sexto">Sexto</option><option value="Séptimo">Séptimo</option><option value="Octavo">Octavo</option><option value="Noveno">Noveno</option><option value="Décimo">Décimo</option><option value="Undécimo">Undécimo</option><option value="Duodécimo">Duodécimo</option><option value="Universidad">Universidad</option><option value="Graduado">Graduado</option><option value="ETC">ETC</option>
+                          </select>
+                        </div>
                       </>
                     )}
                     <div className="participant-field">
