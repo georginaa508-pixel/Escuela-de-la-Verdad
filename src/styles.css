@@ -599,3 +599,45 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
 .visitor-report-group h3 { margin: 0 0 8px; color: #315e50; font-size: 13px; }
 .visitor-report-person-grid { grid-template-columns: minmax(170px,1.4fr) minmax(110px,1fr) minmax(100px,.8fr) minmax(90px,.7fr); }
 .visitor-report-person-grid .visitor-table-head, .visitor-report-person-grid .visitor-table-row { min-width: 620px; }
+
+
+/* Módulo Grupos de estudio */
+.group-create-panel { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 18px; margin: 18px 0; padding: 18px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; }
+.group-create-panel > div:first-child { display: grid; gap: 5px; }
+.group-create-panel strong { color: #29483d; font-size: 13px; }
+.group-create-panel span, .group-guidance { color: #74877d; font-size: 11px; line-height: 1.6; }
+.group-create-controls { display: flex; align-items: center; gap: 8px; }
+.group-create-controls select, .group-add-member select { min-height: 40px; min-width: 112px; padding: 0 10px; border: 1px solid #dce5dc; border-radius: 8px; background: #fbfcfa; color: #29483d; font: inherit; font-size: 12px; }
+.group-guidance { margin: 12px 0 18px; }
+.study-group-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.study-group-card { min-width: 0; padding: 18px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; }
+.study-group-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.group-level-label { color: #74877d; font-size: 10px; }
+.study-group-heading h3 { margin: 5px 0 0; color: #29483d; font-size: 16px; }
+.group-sex-label { padding: 5px 8px; border-radius: 999px; background: #eef2ed; color: #61766a; font-size: 10px; white-space: nowrap; }
+.group-member-count { margin: 12px 0; color: #74877d; font-size: 11px; }
+.group-member-list { border-top: 1px solid #edf0eb; }
+.group-member-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #edf0eb; }
+.group-member-row > span { display: grid; gap: 3px; min-width: 0; }
+.group-member-row strong { color: #29483d; font-size: 11px; font-weight: 600; }
+.group-member-row small { color: #89958d; font-size: 10px; text-transform: capitalize; }
+.group-empty { margin: 12px 0; color: #89958d; font-size: 11px; }
+.group-add-member { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; margin-top: 12px; }
+.group-add-member select { width: 100%; min-width: 0; }
+.group-add-member small { grid-column: 1/-1; color: #89958d; font-size: 10px; }
+.group-history-note { display: inline-block; margin-top: 12px; color: #89958d; font-size: 10px; }
+.visitor-group-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.visitor-group-card { padding: 16px; border: 1px solid #e0e6de; border-radius: 12px; background: #fff; }
+.visitor-group-card > div { display: flex; flex-direction: column; gap: 4px; }
+.visitor-group-card > div span, .visitor-group-card small { color: #89958d; font-size: 10px; }
+.visitor-group-card > div strong { color: #74877d; font-size: 11px; font-weight: 600; }
+.visitor-group-card h3 { margin: 12px 0 6px; color: #29483d; font-size: 16px; }
+.visitor-group-card p { margin: 0 0 5px; color: #61766a; font-size: 11px; }
+.visitor-group-card em { display: block; margin-top: 10px; color: #89958d; font-size: 10px; font-style: normal; }
+@media (max-width: 720px) {
+  .group-create-panel { grid-template-columns: 1fr; }
+  .group-create-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .group-create-controls .primary-button { grid-column: 1/-1; }
+  .study-group-grid, .visitor-group-grid { grid-template-columns: 1fr; }
+  .group-add-member { grid-template-columns: 1fr; }
+}
