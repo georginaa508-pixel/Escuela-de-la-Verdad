@@ -8,6 +8,7 @@ const modules = [
   { number: '03', title: 'Inscripciones', description: 'Inscripciones, niveles y estado de participación.' },
   { number: '04', title: 'Finanzas', description: 'Inscripciones, ofrendas, ingresos y gastos.' },
   { number: '05', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
+  { number: '06', title: 'Grupos de estudio', description: 'Organización de grupos por nivel y sexo.' },
 ];
 
 function getCycleDates(startDate, endDate) {
@@ -39,14 +40,180 @@ function calculateAge(dateString) {
 }
 
 
+
+function GruposEstudio({ onBack }) {
+  const [cycles, setCycles] = useState([]);
+  const [levels, setLevels] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [participants, setParticipants] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
+  const [cycleId, setCycleId] = useState('');
+  const [newLevelId, setNewLevelId] = useState('');
+  const [newSex, setNewSex] = useState('F');
+  const [memberSelections, setMemberSelections] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function loadData() {
+    setLoading(true);
+    setError('');
+    const [cycleResult, levelResult, groupResult, peopleResult, enrollmentResult] = await Promise.all([
+      supabase.from('ciclos_escolares').select('id,anio,estado').order('anio',{ascending:false}),
+      supabase.from('niveles').select('id,numero,nombre').order('numero'),
+      supabase.from('grupos_estudio').select('id,ciclo_id,nivel_id,nivel_numero,nivel_nombre,sexo,nombre,numero,historico,grupo_estudio_integrantes(id,participante_id,nombre_integrante,tipo_integrante)').order('nivel_numero').order('sexo').order('numero'),
+      supabase.from('participantes').select('id,nombre_completo,sexo,activo'),
+      supabase.from('inscripciones').select('id,participante_id,ciclo_id,nivel_id,estado,tipo_inscripcion')
+    ]);
+    const failed = [cycleResult,levelResult,groupResult,peopleResult,enrollmentResult].find(x => x.error);
+    if (failed) {
+      setError('No se pudieron cargar los grupos. Verifica los permisos y vuelve a intentarlo.');
+    } else {
+      setCycles(cycleResult.data || []);
+      setLevels(levelResult.data || []);
+      setGroups(groupResult.data || []);
+      setParticipants(peopleResult.data || []);
+      setEnrollments(enrollmentResult.data || []);
+      const defaultCycle = (cycleResult.data || []).find(x => x.anio === 2026) || (cycleResult.data || [])[0];
+      setCycleId(current => current || defaultCycle?.id || '');
+      setNewLevelId(current => current || (levelResult.data || [])[0]?.id || '');
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { loadData(); }, []);
+
+  const selectedCycle = cycles.find(x => x.id === cycleId);
+  const cycleGroups = groups.filter(x => x.ciclo_id === cycleId);
+  const orderedGroups = [...cycleGroups].sort((a,b) => a.nivel_numero-b.nivel_numero || a.sexo.localeCompare(b.sexo) || a.numero-b.numero);
+  const candidatesFor = group => {
+    const assigned = new Set(groups.filter(x => x.ciclo_id === group.ciclo_id).flatMap(x => (x.grupo_estudio_integrantes || []).map(m => m.participante_id).filter(Boolean)));
+    return enrollments.filter(e => e.ciclo_id === group.ciclo_id && e.nivel_id === group.nivel_id && e.estado !== 'retirado' && !assigned.has(e.participante_id))
+      .map(e => {
+        const person = participants.find(p => p.id === e.participante_id);
+        return person ? { ...person, tipo: e.tipo_inscripcion } : null;
+      })
+      .filter(p => p && p.activo !== false && p.sexo === group.sexo && ['joven','servidor','entrenante'].includes(p.tipo));
+  };
+
+  async function addGroup() {
+    const level = levels.find(x => x.id === newLevelId);
+    if (!level || !cycleId) return;
+    const same = cycleGroups.filter(x => x.nivel_id === level.id && x.sexo === newSex);
+    const number = Math.max(0,...same.map(x => Number(x.numero)||0)) + 1;
+    setSaving(true);
+    setError('');
+    const result = await supabase.from('grupos_estudio').insert({
+      ciclo_id: cycleId, nivel_id: level.id, nivel_numero: level.numero,
+      nivel_nombre: level.nombre, sexo: newSex, nombre: 'Grupo ' + number,
+      numero, historico: false
+    });
+    if (result.error) setError('No se pudo crear el grupo. Actualiza los datos e inténtalo de nuevo.');
+    else await loadData();
+    setSaving(false);
+  }
+
+  async function addMember(group) {
+    const participantId = memberSelections[group.id];
+    const person = candidatesFor(group).find(x => x.id === participantId);
+    if (!person) return;
+    setSaving(true);
+    setError('');
+    const result = await supabase.from('grupo_estudio_integrantes').insert({
+      ciclo_id: group.ciclo_id, grupo_id: group.id, participante_id: person.id,
+      nombre_integrante: person.nombre_completo, tipo_integrante: person.tipo
+    });
+    if (result.error) setError(result.error.code === '23505'
+      ? 'Esta persona ya está asignada a un grupo de este ciclo.'
+      : 'No se pudo agregar a la persona. Verifica que su nivel y sexo coincidan con el grupo.');
+    else {
+      setMemberSelections(current => ({ ...current, [group.id]: '' }));
+      await loadData();
+    }
+    setSaving(false);
+  }
+
+  async function removeMember(member) {
+    if (!window.confirm('¿Quitar a esta persona del grupo?')) return;
+    setSaving(true);
+    const result = await supabase.from('grupo_estudio_integrantes').delete().eq('id',member.id);
+    if (result.error) setError('No se pudo quitar a la persona del grupo.');
+    else await loadData();
+    setSaving(false);
+  }
+
+  return (
+    <section className="work-section">
+      <button className="back-button" type="button" onClick={onBack}>← Volver a módulos</button>
+      <div className="section-heading">
+        <div><p className="eyebrow">ORGANIZACIÓN POR NIVEL Y SEXO</p><h2>Grupos de estudio</h2><p className="work-intro">Coordinación General organiza los grupos y asigna a cada integrante según su nivel y sexo.</p></div>
+        <span className="module-count">{cycleGroups.length} grupos</span>
+      </div>
+      {loading ? <p className="empty-state">Cargando grupos…</p> : <>
+        {error && <p className="auth-error" role="alert">{error}</p>}
+        <div className="finance-toolbar">
+          <label htmlFor="study-group-cycle">Ciclo</label>
+          <select id="study-group-cycle" value={cycleId} onChange={e=>setCycleId(e.target.value)}>
+            {cycles.map(x=><option key={x.id} value={x.id}>{x.anio} · {x.estado}</option>)}
+          </select>
+          <button className="text-button" type="button" onClick={loadData} disabled={saving}>Actualizar</button>
+        </div>
+        <div className="group-create-panel">
+          <div><strong>Agregar otro grupo</strong><span>Úsalo cuando un nivel necesite más de un grupo del mismo sexo.</span></div>
+          <div className="group-create-controls">
+            <select aria-label="Nivel del nuevo grupo" value={newLevelId} onChange={e=>setNewLevelId(e.target.value)}>
+              {levels.map(x=><option key={x.id} value={x.id}>Nivel {x.numero}</option>)}
+            </select>
+            <select aria-label="Sexo del nuevo grupo" value={newSex} onChange={e=>setNewSex(e.target.value)}>
+              <option value="F">Femenino</option><option value="M">Masculino</option>
+            </select>
+            <button className="primary-button" type="button" onClick={addGroup} disabled={saving || !cycleId || !newLevelId}>Agregar grupo</button>
+          </div>
+        </div>
+        {selectedCycle?.anio === 2026 && <p className="group-guidance">Se prepararon grupos femeninos y masculinos para los seis niveles. La distribución de referencia es de 4 jóvenes y 2 servidores por grupo; no es un límite obligatorio. Los entrenantes cuentan como servidores.</p>}
+        <div className="study-group-grid">
+          {orderedGroups.map(group=>{
+            const members = group.grupo_estudio_integrantes || [];
+            const candidates = group.historico ? [] : candidatesFor(group);
+            return <article className="study-group-card" key={group.id}>
+              <div className="study-group-heading">
+                <div><span className="group-level-label">Nivel {group.nivel_numero} · {group.nivel_nombre}</span><h3>{group.nombre}</h3></div>
+                <span className="group-sex-label">{group.sexo === 'F' ? 'Femenino' : 'Masculino'}</span>
+              </div>
+              <div className="group-member-count">{members.length} integrantes · {members.filter(m=>m.tipo_integrante==='joven').length} jóvenes · {members.filter(m=>['servidor','entrenante'].includes(m.tipo_integrante)).length} servidores</div>
+              <div className="group-member-list">
+                {members.map(member=><div className="group-member-row" key={member.id}>
+                  <span><strong>{member.nombre_integrante}</strong><small>{member.tipo_integrante === 'entrenante' ? 'Entrenante · servidor' : member.tipo_integrante}</small></span>
+                  {!group.historico && <button className="text-button" type="button" onClick={()=>removeMember(member)} disabled={saving}>Quitar</button>}
+                </div>)}
+                {!members.length && <p className="group-empty">Aún no hay integrantes asignados.</p>}
+              </div>
+              {!group.historico && <div className="group-add-member">
+                <select aria-label={'Agregar integrante a '+group.nombre} value={memberSelections[group.id] || ''} onChange={e=>setMemberSelections(current=>({...current,[group.id]:e.target.value}))}>
+                  <option value="">Seleccionar inscrito compatible…</option>
+                  {candidates.map(person=><option key={person.id} value={person.id}>{person.nombre_completo} · {person.tipo === 'entrenante' ? 'Entrenante' : person.tipo}</option>)}
+                </select>
+                <button className="primary-button" type="button" onClick={()=>addMember(group)} disabled={saving || !memberSelections[group.id]}>Asignar</button>
+                {!candidates.length && <small>Sin inscritos disponibles de este nivel y sexo.</small>}
+              </div>}
+              {group.historico && <span className="group-history-note">Registro histórico · solo consulta</span>}
+            </article>;
+          })}
+          {!orderedGroups.length && <div className="empty-state">No hay grupos registrados para este ciclo.</div>}
+        </div>
+      </>}
+    </section>
+  );
+}
+
 function VisitorDemo() {
   const [section, setSection] = useState('Inicio');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [reportSelection, setReportSelection] = useState({ type: '', value: '' });
-  const [data, setData] = useState({ iglesias: [], participantes: [], inscripciones: [], movimientos: [], finanzas: [], niveles: [] });
-  const nav = [['Inicio','⌂'],['Iglesias','01'],['Participantes','02'],['Inscripciones','03'],['Finanzas','04'],['Reportes','05']];
+  const [data, setData] = useState({ iglesias: [], participantes: [], inscripciones: [], movimientos: [], finanzas: [], niveles: [], grupos: [] });
+  const nav = [['Inicio','⌂'],['Iglesias','01'],['Participantes','02'],['Inscripciones','03'],['Finanzas','04'],['Reportes','05'],['Grupos de estudio','06']];
   const money = value => new Intl.NumberFormat('es-HN',{style:'currency',currency:'HNL'}).format(Number(value || 0));
   const date = value => value ? new Date(value + 'T00:00:00').toLocaleDateString('es-HN') : '—';
 
@@ -61,11 +228,12 @@ function VisitorDemo() {
         supabase.from('visitor_finanzas_movimientos').select('*').order('fecha',{ascending:false}),
         supabase.from('visitor_finanzas_resumen').select('*').order('anio',{ascending:false}),
         supabase.from('visitor_ciclos_niveles').select('*').order('nivel_numero'),
+        supabase.from('visitor_grupos_estudio').select('*').order('anio',{ascending:false}).order('nivel_numero').order('sexo').order('grupo_numero'),
       ]);
       if (!active) return;
       const failed = results.find(x => x.error);
       if (failed) setError('No se pudo cargar toda la información. Actualiza el enlace o comunícate con Coordinación.');
-      else setData({ iglesias:results[0].data||[], participantes:results[1].data||[], inscripciones:results[2].data||[], movimientos:results[3].data||[], finanzas:results[4].data||[], niveles:results[5].data||[] });
+      else setData({ iglesias:results[0].data||[], participantes:results[1].data||[], inscripciones:results[2].data||[], movimientos:results[3].data||[], finanzas:results[4].data||[], niveles:results[5].data||[], grupos:results[6].data||[] });
       setLoading(false);
     }
     load();
@@ -97,7 +265,7 @@ function VisitorDemo() {
               <article><span>Ciclo en preparación</span><strong>2026</strong><small>26–31 de diciembre</small></article>
             </div>
             <h2>Conoce los módulos</h2><div className="visitor-module-grid">
-              {nav.slice(1).map(([label,number])=><button key={label} onClick={()=>{setSection(label);setSearch('');}}><span>{number}</span><strong>{label}</strong><small>{({Iglesias:'Localidades y cantidad de participantes.',Participantes:'Listado general de personas registradas.',Inscripciones:'Ciclos, niveles y estado de participación.',Finanzas:'Resumen de ingresos, egresos y cuotas.',Reportes:'Resumen por localidad y nivel.'})[label]}</small></button>)}
+              {nav.slice(1).map(([label,number])=><button key={label} onClick={()=>{setSection(label);setSearch('');}}><span>{number}</span><strong>{label}</strong><small>{({Iglesias:'Localidades y cantidad de participantes.',Participantes:'Listado general de personas registradas.',Inscripciones:'Ciclos, niveles y estado de participación.',Finanzas:'Resumen de ingresos, egresos y cuotas.',Reportes:'Resumen por localidad y nivel.','Grupos de estudio':'Grupos históricos y estructura por nivel y sexo.'})[label]}</small></button>)}
             </div>
           </> : <>
             <button className="visitor-back" onClick={()=>{setSection('Inicio');setSearch('');}}>← Volver al inicio</button>
@@ -122,6 +290,20 @@ function VisitorDemo() {
               <div className="visitor-table visitor-scroll-table"><div className="visitor-table-head visitor-enrollment-grid"><span>Ciclo</span><span>Participante</span><span>Localidad</span><span>Nivel</span><span>Estado</span></div>
                 {filteredEnrollments.map(x=><div className="visitor-table-row visitor-enrollment-grid" key={x.id}><span>{x.anio}</span><span>{x.nombre_completo}</span><span>{x.iglesia||'—'}</span><span>{x.nivel?x.nivel_numero+'. '+x.nivel:'Sin nivel'}</span><span>{x.estado}</span></div>)}
                 {!filteredEnrollments.length&&<div className="visitor-empty">No se encontraron inscripciones.</div>}
+              </div>
+            </>}
+
+            {section === 'Grupos de estudio' && <>
+              <p className="visitor-lead">Consulta histórica y estructura general de los grupos por nivel y sexo. Los nombres de integrantes se reservan para Coordinación General.</p>
+              <div className="visitor-group-grid">
+                {data.grupos.map(group=><article className="visitor-group-card" key={group.grupo_id}>
+                  <div><span>{group.anio} · Nivel {group.nivel_numero}</span><strong>{group.nivel_nombre}</strong></div>
+                  <h3>{group.grupo_nombre}</h3>
+                  <p>{group.sexo === 'F' ? 'Femenino' : 'Masculino'} · {group.total_integrantes} integrantes</p>
+                  <small>{group.total_jovenes} jóvenes · {group.total_servidores} servidores</small>
+                  {group.historico && <em>Histórico 2025</em>}
+                </article>)}
+                {!data.grupos.length && <div className="visitor-empty">No hay grupos registrados.</div>}
               </div>
             </>}
             {section === 'Finanzas' && <>
@@ -1457,7 +1639,7 @@ export default function App() {
           <button className={`sidebar-link ${activeModule === '' ? 'active' : ''}`} type="button" onClick={() => setActiveModule('')}>
             <span className="sidebar-link-number">⌂</span><span>Inicio</span>
           </button>
-          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
             <button
               className={`sidebar-link ${activeModule === module.title ? 'active' : ''}`}
               key={module.number}
@@ -1469,7 +1651,9 @@ export default function App() {
           ))}
         </aside>
         <div className="app-main-content">
-      {activeModule === 'Iglesias' ? (
+      {activeModule === 'Grupos de estudio' ? (
+        <GruposEstudio onBack={() => setActiveModule('')} />
+      ) : activeModule === 'Iglesias' ? (
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
           <div className="section-heading">
@@ -2376,11 +2560,11 @@ export default function App() {
           <section className="modules-section">
             <div className="section-heading">
               <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
-              <span className="module-count">05 módulos</span>
+              <span className="module-count">06 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
+              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones', 'Grupos de estudio'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
