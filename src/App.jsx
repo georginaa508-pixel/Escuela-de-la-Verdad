@@ -137,6 +137,10 @@ export default function App() {
   const [reportError, setReportError] = useState('');
   const [reportCycles, setReportCycles] = useState([]);
   const [reportCycleId, setReportCycleId] = useState('');
+  const [reportFilterChurch, setReportFilterChurch] = useState('todos');
+  const [reportFilterLevel, setReportFilterLevel] = useState('todos');
+  const [reportFilterType, setReportFilterType] = useState('todos');
+  const [reportFilterStatus, setReportFilterStatus] = useState('todos');
   const [reportParticipants, setReportParticipants] = useState([]);
   const [reportChurches, setReportChurches] = useState([]);
   const [reportLevels, setReportLevels] = useState([]);
@@ -952,6 +956,18 @@ export default function App() {
   const reportCycle = reportCycles.find((cycle) => cycle.id === reportCycleId);
   const reportCycleEnrollments = reportEnrollments.filter((item) => item.ciclo_id === reportCycleId);
   const reportEnrollmentByParticipant = new Map(reportCycleEnrollments.map((item) => [item.participante_id, item]));
+  const reportFilteredParticipants = reportActiveParticipants
+    .filter((person) => {
+      const enrollment = reportEnrollmentByParticipant.get(person.id);
+      if (!enrollment) return false;
+      if (reportFilterChurch !== 'todos' && person.iglesia_id !== reportFilterChurch) return false;
+      if (reportFilterLevel !== 'todos' && enrollment.nivel_id !== reportFilterLevel) return false;
+      if (reportFilterType !== 'todos' && person.tipo_participante !== reportFilterType) return false;
+      if (reportFilterStatus !== 'todos' && enrollment.estado !== reportFilterStatus) return false;
+      return true;
+    })
+    .sort((a, b) => (a.nombre_completo || '').localeCompare(b.nombre_completo || '', 'es'));
+
   const reportActiveParticipants = reportParticipants.filter((item) => item.activo !== false);
   const reportLocalitySummary = reportChurches.map((church) => ({
     localidad: church.nombre,
@@ -1019,8 +1035,22 @@ export default function App() {
         'Fecha de registro': person.created_at ? new Date(person.created_at).toLocaleDateString('es-HN') : '',
       };
     });
+    const filteredParticipantRows = reportFilteredParticipants.map((person) => {
+      const enrollment = reportEnrollmentByParticipant.get(person.id);
+      return {
+        Código: person.codigo || '',
+        Participante: person.nombre_completo || '',
+        Localidad: reportChurches.find((church) => church.id === person.iglesia_id)?.nombre || 'Sin localidad',
+        'Asiste como': person.tipo_participante || '',
+        Nivel: reportLevels.find((level) => level.id === enrollment?.nivel_id)?.nombre || '',
+        'Estado de inscripción': enrollment?.estado || '',
+        Sexo: person.sexo === 'F' ? 'Femenino' : person.sexo === 'M' ? 'Masculino' : '',
+        Teléfono: person.telefono || '',
+      };
+    });
     if (profile?.rol === 'coordinacion_general') {
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Ficha participantes');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(filteredParticipantRows), 'Listado filtrado');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLocalitySummary), 'Por localidad');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLevelSummary), 'Por nivel');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportTypeSummary), 'Por tipo');
@@ -1431,6 +1461,54 @@ export default function App() {
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
           <div className="section-heading"><div><p className="eyebrow">CONSULTAS Y RESÚMENES</p><h2>Reportes</h2><p className="work-intro">Consulta la participación, distribución por localidad y nivel, y el resumen financiero del ciclo.</p></div><span className="module-count">{reportCycle?.anio || 'Ciclo'}</span></div>
+          {profile?.rol === 'coordinacion_general' && reportCycleId && (
+            <section className="profile-card finance-records">
+              <p className="eyebrow">GENERAR LISTADO DE INSCRITOS</p>
+              <p className="work-intro">Selecciona uno o varios criterios. El listado y la hoja «Listado filtrado» del Excel mostrarán únicamente las coincidencias.</p>
+              <div className="participant-fields">
+                <div className="participant-field"><label htmlFor="report-filter-church">Localidad</label>
+                  <select id="report-filter-church" value={reportFilterChurch} onChange={(event) => setReportFilterChurch(event.target.value)}>
+                    <option value="todos">Todas las localidades</option>
+                    {reportChurches.map((church) => <option key={church.id} value={church.id}>{church.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="participant-field"><label htmlFor="report-filter-level">Nivel</label>
+                  <select id="report-filter-level" value={reportFilterLevel} onChange={(event) => setReportFilterLevel(event.target.value)}>
+                    <option value="todos">Todos los niveles</option>
+                    {reportLevels.map((level) => <option key={level.id} value={level.id}>{level.nombre}</option>)}
+                    <option value="sin-nivel">Sin nivel</option>
+                  </select>
+                </div>
+                <div className="participant-field"><label htmlFor="report-filter-type">Tipo de participante</label>
+                  <select id="report-filter-type" value={reportFilterType} onChange={(event) => setReportFilterType(event.target.value)}>
+                    <option value="todos">Todos los tipos</option>
+                    {['joven', 'servidor', 'entrenante', 'mensajero', 'cocina'].map((type) => <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div className="participant-field"><label htmlFor="report-filter-status">Estado de inscripción</label>
+                  <select id="report-filter-status" value={reportFilterStatus} onChange={(event) => setReportFilterStatus(event.target.value)}>
+                    <option value="todos">Todos los estados</option>
+                    {[...new Set(reportCycleEnrollments.map((item) => item.estado).filter(Boolean))].map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="enrollment-selection-heading">
+                <strong>{reportFilteredParticipants.length} inscritos encontrados</strong>
+                <button className="text-button" type="button" onClick={() => { setReportFilterChurch('todos'); setReportFilterLevel('todos'); setReportFilterType('todos'); setReportFilterStatus('todos'); }}>Limpiar filtros</button>
+              </div>
+              {reportFilteredParticipants.length === 0 ? <p className="empty-state">No hay inscritos que coincidan con estos filtros.</p> : (
+                <div className="finance-records">
+                  {reportFilteredParticipants.map((person) => {
+                    const enrollment = reportEnrollmentByParticipant.get(person.id);
+                    return <article className="finance-record-row" key={person.id}>
+                      <div><strong>{person.nombre_completo}</strong><span>{reportChurches.find((church) => church.id === person.iglesia_id)?.nombre || 'Sin localidad'} · {person.tipo_participante || 'Sin tipo'}</span></div>
+                      <div><strong>{reportLevels.find((level) => level.id === enrollment?.nivel_id)?.nombre || 'Sin nivel'}</strong><span>{enrollment?.estado?.replaceAll('_', ' ') || ''}</span></div>
+                    </article>;
+                  })}
+                </div>
+              )}
+            </section>
+          )}
           <div className="finance-toolbar">
             <label htmlFor="report-cycle">Ciclo</label>
             <select id="report-cycle" value={reportCycleId} onChange={(event) => setReportCycleId(event.target.value)}><option value="">Seleccionar ciclo</option>{reportCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}</select>
