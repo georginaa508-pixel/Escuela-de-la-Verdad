@@ -583,6 +583,16 @@ export default function App() {
     return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   }
 
+  function normalizeImportName(value) {
+    return String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
   function importBoolean(value) {
     const normalized = String(value ?? '').trim().toLowerCase();
     return ['si', 'sí', 'yes', 'true', '1', 'x'].includes(normalized);
@@ -638,7 +648,7 @@ export default function App() {
       if (!sheet) throw new Error('El archivo no contiene una hoja de cálculo.');
       const sourceRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
       if (!sourceRows.length) throw new Error('La primera hoja está vacía o no contiene filas de datos.');
-      const existingNames = new Set(participants.map((p) => p.nombre_completo.trim().toLocaleLowerCase()));
+      const existingNames = new Set(participants.map((p) => normalizeImportName(p.nombre_completo)));
       const seenNames = new Set();
       const parsedRows = sourceRows.map((source, index) => {
         const values = {};
@@ -654,9 +664,10 @@ export default function App() {
         const sex = ['f', 'femenino', 'mujer'].includes(sexRaw) ? 'F' : ['m', 'masculino', 'hombre'].includes(sexRaw) ? 'M' : '';
         const birthValue = pick('fechadenacimiento', 'nacimiento');
         const birth = importDate(birthValue);
-        const duplicateExisting = Boolean(name) && existingNames.has(name.toLocaleLowerCase());
-        const duplicateFile = Boolean(name) && seenNames.has(name.toLocaleLowerCase());
-        if (name) seenNames.add(name.toLocaleLowerCase());
+        const normalizedName = normalizeImportName(name);
+        const duplicateExisting = Boolean(normalizedName) && existingNames.has(normalizedName);
+        const duplicateFile = Boolean(normalizedName) && seenNames.has(normalizedName);
+        if (normalizedName) seenNames.add(normalizedName);
         const errors = [];
         if (!name) errors.push('Falta el nombre completo');
         if (!type) errors.push('Asiste como debe ser Joven, Servidor, Entrenante, Mensajero o Cocina');
@@ -697,7 +708,37 @@ export default function App() {
     if (!readyRows.length) return;
     setParticipantImporting(true);
     setParticipantImportError('');
-    const records = readyRows.map(({ rowNumber, duplicate, duplicateReason, errors, ...record }) => record);
+
+    // Verificación final contra la base de datos para evitar duplicados si el registro cambió
+    // después de mostrar la vista previa.
+    const { data: currentParticipants, error: lookupError } = await supabase
+      .from('participantes')
+      .select('nombre_completo');
+    if (lookupError) {
+      setParticipantImportError('No se pudo comprobar si los participantes ya existen. No se importó ningún registro; inténtalo nuevamente.');
+      setParticipantImporting(false);
+      return;
+    }
+
+    const currentNames = new Set((currentParticipants || []).map((item) => normalizeImportName(item.nombre_completo)));
+    const newlyDuplicated = new Set(
+      readyRows
+        .filter((row) => currentNames.has(normalizeImportName(row.nombre_completo)))
+        .map((row) => row.rowNumber)
+    );
+    if (newlyDuplicated.size > 0) {
+      setParticipantImportRows((current) => current.map((row) => newlyDuplicated.has(row.rowNumber)
+        ? { ...row, duplicate: true, duplicateReason: 'Ya existe en el registro; se omitirá' }
+        : row));
+      setParticipantImportError('Al revisar nuevamente la base de datos encontramos nombres que ya estaban registrados. Los marcamos como duplicados; puedes importar los demás cuando revises la lista.');
+      setParticipantImporting(false);
+      return;
+    }
+
+    const records = readyRows.map(({ rowNumber, duplicate, duplicateReason, errors, ...record }) => ({
+      ...record,
+      activo: true,
+    }));
     const { error: insertError } = await supabase.from('participantes').insert(records);
     if (insertError) {
       setParticipantImportError('No se pudieron importar los participantes. No se confirmó la carga; revisa los datos e inténtalo nuevamente.');
