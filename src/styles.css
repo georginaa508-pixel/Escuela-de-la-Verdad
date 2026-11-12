@@ -670,3 +670,43 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   body:not(.printing-study-groups) .report-print-area,
   body:not(.printing-study-groups) .report-print-area * { visibility: visible !important; }
 }
+
+
+/* Módulo Cabañas: capacidad y asignación de grupos completos */
+.cabin-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:18px 0; }
+.cabin-summary article { padding:14px 16px; border:1px solid #e0e6de; border-radius:10px; background:#fff; }
+.cabin-summary span,.cabin-summary strong { display:block; }
+.cabin-summary span { color:#74877d; font-size:11px; }
+.cabin-summary strong { margin-top:5px; color:#29483d; font-size:23px; }
+.cabin-forms { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:18px 0; }
+.cabin-form { display:grid; align-content:start; gap:8px; }
+.cabin-form h3 { margin:0 0 6px; color:#29483d; font-size:15px; }
+.cabin-form label { color:#52695e; font-size:11px; font-weight:600; }
+.cabin-form input,.cabin-form select { width:100%; min-height:39px; padding:8px 10px; border:1px solid #dce5dc; border-radius:8px; background:#fbfcfa; color:#29483d; font:inherit; font-size:12px; }
+.cabin-form .field-hint { margin:4px 0; }
+.cabin-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:18px; }
+.cabin-card { min-width:0; padding:17px; border:1px solid #e0e6de; border-radius:12px; background:#fff; }
+.cabin-card-heading { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+.cabin-card-heading span { color:#74877d; font-size:10px; }
+.cabin-card-heading h3 { margin:4px 0 0; color:#29483d; font-size:16px; }
+.cabin-card-heading > strong { color:#315e50; font-size:16px; white-space:nowrap; }
+.cabin-capacity-track { height:7px; margin:13px 0; overflow:hidden; border-radius:99px; background:#edf1eb; }
+.cabin-capacity-track span { display:block; height:100%; border-radius:99px; background:#729783; }
+.cabin-group-list { border-top:1px solid #edf0eb; }
+.cabin-group-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid #edf0eb; }
+.cabin-group-row > span { display:grid; gap:3px; }
+.cabin-group-row strong { color:#29483d; font-size:12px; }
+.cabin-group-row small { color:#89958d; font-size:10px; }
+.cabin-edit-row { display:grid; grid-template-columns:.7fr 1fr auto; align-items:end; gap:8px; margin-top:13px; }
+.cabin-edit-row label { display:grid; gap:5px; color:#74877d; font-size:10px; }
+.cabin-edit-row input { width:100%; min-width:0; min-height:35px; padding:7px 8px; border:1px solid #dce5dc; border-radius:7px; background:#fbfcfa; color:#29483d; font:inherit; font-size:11px; }
+.cabin-edit-row .text-button { padding:8px 4px; font-size:10px; }
+@media(max-width:720px) {
+ .cabin-summary { gap:7px; }
+ .cabin-summary article { padding:11px 9px; }
+ .cabin-summary span { font-size:10px; }
+ .cabin-summary strong { font-size:20px; }
+ .cabin-forms,.cabin-grid { grid-template-columns:1fr; }
+ .cabin-edit-row { grid-template-columns:1fr 1fr; }
+ .cabin-edit-row button { grid-column:1/-1; justify-self:start; }
+}
