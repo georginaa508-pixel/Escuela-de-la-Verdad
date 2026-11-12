@@ -133,6 +133,17 @@ export default function App() {
   const [financePaymentDate, setFinancePaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [financePaymentMethod, setFinancePaymentMethod] = useState('efectivo');
   const [financePaymentReference, setFinancePaymentReference] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reportCycles, setReportCycles] = useState([]);
+  const [reportCycleId, setReportCycleId] = useState('');
+  const [reportParticipants, setReportParticipants] = useState([]);
+  const [reportChurches, setReportChurches] = useState([]);
+  const [reportLevels, setReportLevels] = useState([]);
+  const [reportEnrollments, setReportEnrollments] = useState([]);
+  const [reportFees, setReportFees] = useState([]);
+  const [reportPayments, setReportPayments] = useState([]);
+  const [reportMovements, setReportMovements] = useState([]);
 
 
   useEffect(() => {
@@ -895,6 +906,100 @@ export default function App() {
     }
   }, [activeModule, profile]);
 
+
+  async function loadReportData() {
+    setReportLoading(true);
+    setReportError('');
+    const [
+      { data: cycles, error: cyclesError },
+      { data: participants, error: participantsError },
+      { data: churches, error: churchesError },
+      { data: levels, error: levelsError },
+      { data: enrollments, error: enrollmentsError },
+      { data: fees, error: feesError },
+      { data: payments, error: paymentsError },
+      { data: movements, error: movementsError },
+    ] = await Promise.all([
+      supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
+      supabase.from('participantes').select('id, nombre_completo, iglesia_id, tipo_participante, activo'),
+      supabase.from('iglesias').select('id, nombre, activa').order('nombre', { ascending: true }),
+      supabase.from('niveles').select('id, numero, nombre, activo').order('numero', { ascending: true }),
+      supabase.from('inscripciones').select('id, participante_id, ciclo_id, nivel_id, tipo_inscripcion, tipo_participacion, estado'),
+      supabase.from('cuotas_inscripcion').select('id, inscripcion_id, monto_final'),
+      supabase.from('pagos_cuotas').select('id, cuota_inscripcion_id, monto, fecha_pago'),
+      supabase.from('movimientos_financieros').select('id, ciclo_id, tipo, concepto, monto, fecha'),
+    ]);
+    if (cyclesError || participantsError || churchesError || levelsError || enrollmentsError || feesError || paymentsError || movementsError) {
+      setReportError('No se pudieron cargar todos los datos para los reportes. Verifica los permisos de acceso e inténtalo nuevamente.');
+    } else {
+      setReportCycles(cycles || []);
+      setReportCycleId((current) => current || cycles?.[0]?.id || '');
+      setReportParticipants(participants || []);
+      setReportChurches(churches || []);
+      setReportLevels(levels || []);
+      setReportEnrollments(enrollments || []);
+      setReportFees(fees || []);
+      setReportPayments(payments || []);
+      setReportMovements(movements || []);
+    }
+    setReportLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeModule === 'Reportes' && profile?.activo && ['coordinacion_general', 'finanzas'].includes(profile.rol)) loadReportData();
+  }, [activeModule, profile]);
+
+  const reportCycle = reportCycles.find((cycle) => cycle.id === reportCycleId);
+  const reportCycleEnrollments = reportEnrollments.filter((item) => item.ciclo_id === reportCycleId);
+  const reportEnrollmentByParticipant = new Map(reportCycleEnrollments.map((item) => [item.participante_id, item]));
+  const reportActiveParticipants = reportParticipants.filter((item) => item.activo !== false);
+  const reportLocalitySummary = reportChurches.map((church) => ({
+    localidad: church.nombre,
+    participantes: reportActiveParticipants.filter((item) => item.iglesia_id === church.id).length,
+    inscritos: reportCycleEnrollments.filter((item) => reportParticipants.find((person) => person.id === item.participante_id)?.iglesia_id === church.id).length,
+  })).filter((item) => item.participantes || item.inscritos);
+  const reportLevelSummary = reportLevels.map((level) => ({
+    nivel: level.nombre,
+    cantidad: reportCycleEnrollments.filter((item) => item.nivel_id === level.id).length,
+  })).filter((item) => item.cantidad > 0);
+  const reportCycleFees = reportFees.filter((fee) => reportCycleEnrollments.some((item) => item.id === fee.inscripcion_id));
+  const reportCycleFeeIds = new Set(reportCycleFees.map((fee) => fee.id));
+  const reportCyclePayments = reportPayments.filter((payment) => reportCycleFeeIds.has(payment.cuota_inscripcion_id));
+  const reportTotalFees = reportCycleFees.reduce((sum, fee) => sum + Number(fee.monto_final || 0), 0);
+  const reportTotalPaid = reportCyclePayments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
+  const reportOtherIncome = reportMovements.filter((item) => item.ciclo_id === reportCycleId && item.tipo !== 'gasto').reduce((sum, item) => sum + Number(item.monto || 0), 0);
+  const reportExpenses = reportMovements.filter((item) => item.ciclo_id === reportCycleId && item.tipo === 'gasto').reduce((sum, item) => sum + Number(item.monto || 0), 0);
+  const reportIncome = reportTotalPaid + reportOtherIncome;
+
+  function exportReports() {
+    const workbook = XLSX.utils.book_new();
+    const participantRows = reportActiveParticipants.map((person) => {
+      const enrollment = reportEnrollmentByParticipant.get(person.id);
+      return {
+        Participante: person.nombre_completo,
+        Localidad: reportChurches.find((church) => church.id === person.iglesia_id)?.nombre || 'Sin localidad',
+        'Asiste como': person.tipo_participante || '',
+        Inscrito: enrollment ? 'Sí' : 'No',
+        Nivel: reportLevels.find((level) => level.id === enrollment?.nivel_id)?.nombre || '',
+        Estado: enrollment?.estado || '',
+      };
+    });
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Participantes');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLocalitySummary), 'Por localidad');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLevelSummary), 'Por nivel');
+    const financeRows = [
+      { Concepto: 'Cuotas asignadas', Monto: reportTotalFees },
+      { Concepto: 'Abonos recibidos', Monto: reportTotalPaid },
+      { Concepto: 'Saldo pendiente de cuotas', Monto: Math.max(0, reportTotalFees - reportTotalPaid) },
+      { Concepto: 'Ofrendas y otros ingresos', Monto: reportOtherIncome },
+      { Concepto: 'Total de ingresos', Monto: reportIncome },
+      { Concepto: 'Gastos', Monto: reportExpenses },
+      { Concepto: 'Saldo neto', Monto: reportIncome - reportExpenses },
+    ];
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(financeRows), 'Resumen financiero');
+    XLSX.writeFile(workbook, 'Reportes_Escuela_de_la_Verdad_' + (reportCycle?.anio || 'general') + '.xlsx');
+  }
+
   async function handleFinanceMovement(event) {
     event.preventDefault();
     const amount = Number(financeAmount);
@@ -1100,7 +1205,7 @@ export default function App() {
           <button className={`sidebar-link ${activeModule === '' ? 'active' : ''}`} type="button" onClick={() => setActiveModule('')}>
             <span className="sidebar-link-number">⌂</span><span>Inicio</span>
           </button>
-          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas'))).map((module) => (
+          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
             <button
               className={`sidebar-link ${activeModule === module.title ? 'active' : ''}`}
               key={module.number}
@@ -1277,6 +1382,47 @@ export default function App() {
                   const balance = Number(fee.monto_final || 0) - paid;
                   return <article className="finance-record-row" key={fee.id}><div><strong>{fee.enrollment?.participante || 'Participante'}</strong><span>Cuota: L {Number(fee.monto_final).toLocaleString('es-HN', { minimumFractionDigits: 2 })} · Abonado: L {paid.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</span></div><strong>{balance <= 0 ? 'Cancelada' : paid > 0 ? `Saldo L ${balance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}` : `Pendiente L ${balance.toLocaleString('es-HN', { minimumFractionDigits: 2 })}`}</strong></article>;
                 })}
+              </section>
+            </>
+          )}
+        </section>
+      ) : activeModule === 'Reportes' ? (
+        <section className="work-section">
+          <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
+          <div className="section-heading"><div><p className="eyebrow">CONSULTAS Y RESÚMENES</p><h2>Reportes</h2><p className="work-intro">Consulta la participación, distribución por localidad y nivel, y el resumen financiero del ciclo.</p></div><span className="module-count">{reportCycle?.anio || 'Ciclo'}</span></div>
+          <div className="finance-toolbar">
+            <label htmlFor="report-cycle">Ciclo</label>
+            <select id="report-cycle" value={reportCycleId} onChange={(event) => setReportCycleId(event.target.value)}><option value="">Seleccionar ciclo</option>{reportCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}</select>
+            <button className="text-button" type="button" onClick={loadReportData} disabled={reportLoading}>Actualizar datos</button>
+            <button className="primary-button" type="button" onClick={exportReports} disabled={reportLoading || !reportCycleId}>Descargar Excel</button>
+          </div>
+          {reportError && <p className="auth-error" role="alert">{reportError}</p>}
+          {reportLoading ? <p className="empty-state">Preparando reportes…</p> : !reportCycleId ? <p className="empty-state">Todavía no hay ciclos registrados para consultar.</p> : (
+            <>
+              {profile?.rol === 'coordinacion_general' && <>
+                <div className="finance-summary-grid">
+                  <article className="finance-summary-card"><span>Participantes activos</span><strong>{reportActiveParticipants.length}</strong></article>
+                  <article className="finance-summary-card"><span>Inscripciones del ciclo</span><strong>{reportCycleEnrollments.length}</strong></article>
+                  <article className="finance-summary-card"><span>Localidades participantes</span><strong>{reportLocalitySummary.length}</strong></article>
+                  <article className="finance-summary-card"><span>Niveles con inscritos</span><strong>{reportLevelSummary.length}</strong></article>
+                </div>
+                <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES POR LOCALIDAD</p>
+                  {reportLocalitySummary.length === 0 ? <p className="empty-state">No hay participantes o inscripciones para mostrar.</p> : reportLocalitySummary.map((item) => <article className="finance-record-row" key={item.localidad}><div><strong>{item.localidad}</strong><span>{item.participantes} participantes activos · {item.inscritos} inscritos en {reportCycle?.anio}</span></div><strong>{item.inscritos} inscritos</strong></article>)}
+                </section>
+                <section className="profile-card finance-records"><p className="eyebrow">INSCRIPCIONES POR NIVEL</p>
+                  {reportLevelSummary.length === 0 ? <p className="empty-state">No hay niveles con inscripciones en este ciclo.</p> : reportLevelSummary.map((item) => <article className="finance-record-row" key={item.nivel}><strong>{item.nivel}</strong><strong>{item.cantidad}</strong></article>)}
+                </section>
+              </>}
+              <section className="profile-card finance-records"><p className="eyebrow">RESUMEN FINANCIERO · {reportCycle?.anio}</p>
+                <div className="finance-summary-grid">
+                  <article className="finance-summary-card"><span>Cuotas asignadas</span><strong>L {reportTotalFees.toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                  <article className="finance-summary-card"><span>Abonos recibidos</span><strong>L {reportTotalPaid.toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                  <article className="finance-summary-card"><span>Saldo pendiente</span><strong>L {Math.max(0,reportTotalFees-reportTotalPaid).toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                  <article className="finance-summary-card"><span>Ofrendas y otros ingresos</span><strong>L {reportOtherIncome.toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                  <article className="finance-summary-card"><span>Total de ingresos</span><strong>L {reportIncome.toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                  <article className="finance-summary-card"><span>Gastos</span><strong>L {reportExpenses.toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                  <article className="finance-summary-card"><span>Saldo neto</span><strong>L {(reportIncome-reportExpenses).toLocaleString('es-HN', {minimumFractionDigits:2})}</strong></article>
+                </div>
               </section>
             </>
           )}
@@ -1868,11 +2014,11 @@ export default function App() {
           <section className="modules-section">
             <div className="section-heading">
               <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
-              <span className="module-count">04 módulos</span>
+              <span className="module-count">05 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && module.title === 'Finanzas'))).map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || module.title === 'Finanzas' ? setActiveModule(module.title) : null}>
+              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
