@@ -923,7 +923,7 @@ export default function App() {
       supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
       supabase.from('participantes').select('id, nombre_completo, iglesia_id, tipo_participante, activo'),
       supabase.from('iglesias').select('id, nombre, activa').order('nombre', { ascending: true }),
-      supabase.from('niveles').select('id, numero, nombre, activo').order('numero', { ascending: true }),
+      profile?.rol === 'coordinacion_general' ? supabase.from('niveles').select('id, numero, nombre, activo').order('numero', { ascending: true }) : Promise.resolve({ data: [], error: null }),
       supabase.from('inscripciones').select('id, participante_id, ciclo_id, nivel_id, tipo_inscripcion, tipo_participacion, estado'),
       supabase.from('cuotas_inscripcion').select('id, inscripcion_id, monto_final'),
       supabase.from('pagos_cuotas').select('id, cuota_inscripcion_id, monto, fecha_pago'),
@@ -984,9 +984,11 @@ export default function App() {
         Estado: enrollment?.estado || '',
       };
     });
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Participantes');
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLocalitySummary), 'Por localidad');
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLevelSummary), 'Por nivel');
+    if (profile?.rol === 'coordinacion_general') {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Participantes');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLocalitySummary), 'Por localidad');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLevelSummary), 'Por nivel');
+    }
     const financeRows = [
       { Concepto: 'Cuotas asignadas', Monto: reportTotalFees },
       { Concepto: 'Abonos recibidos', Monto: reportTotalPaid },
