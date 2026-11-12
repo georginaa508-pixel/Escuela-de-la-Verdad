@@ -1714,11 +1714,6 @@ export default function App() {
 
           {enrollmentError && <p className="auth-error" role="alert">{enrollmentError}</p>}
           {enrollmentCycleId && courseCycleEnrollments.length > 0 && (
-            <details className="cycle-closure-details" open={Boolean(closingCycleId)}>
-              <summary>
-                <strong>Administración del ciclo</strong>
-                <span>Opciones de cierre y revisión de participación</span>
-              </summary>
             <section className="cycle-closure">
               <div className="cycle-closure-heading">
                 <div>
@@ -1780,7 +1775,6 @@ export default function App() {
                 </>
               )}
             </section>
-            </details>
           )}
           <div className="enrollment-list">
             {enrollmentsLoading ? <p className="empty-state">Cargando inscripciones…</p> : enrollments.length === 0 ? (
