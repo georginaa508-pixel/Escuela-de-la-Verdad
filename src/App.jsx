@@ -961,7 +961,8 @@ export default function App() {
       const enrollment = reportEnrollmentByParticipant.get(person.id);
       if (!enrollment) return false;
       if (reportFilterChurch !== 'todos' && person.iglesia_id !== reportFilterChurch) return false;
-      if (reportFilterLevel !== 'todos' && enrollment.nivel_id !== reportFilterLevel) return false;
+      if (reportFilterLevel === 'sin-nivel' && enrollment.nivel_id) return false;
+      if (reportFilterLevel !== 'todos' && reportFilterLevel !== 'sin-nivel' && enrollment.nivel_id !== reportFilterLevel) return false;
       if (reportFilterType !== 'todos' && person.tipo_participante !== reportFilterType) return false;
       if (reportFilterStatus !== 'todos' && enrollment.estado !== reportFilterStatus) return false;
       return true;
