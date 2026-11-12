@@ -9,6 +9,7 @@ const modules = [
   { number: '04', title: 'Finanzas', description: 'Inscripciones, ofrendas, ingresos y gastos.' },
   { number: '05', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
   { number: '06', title: 'Grupos de estudio', description: 'Organización de grupos por nivel y sexo.' },
+  { number: '07', title: 'Cabañas', description: 'Alojamiento por grupos completos y capacidad.' },
 ];
 
 function getCycleDates(startDate, endDate) {
@@ -206,14 +207,140 @@ function GruposEstudio({ onBack }) {
   );
 }
 
+
+function Cabanas({ onBack }) {
+  const [cycles, setCycles] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [cabanas, setCabanas] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [cycleId, setCycleId] = useState('');
+  const [name, setName] = useState('');
+  const [sex, setSex] = useState('F');
+  const [capacity, setCapacity] = useState('6');
+  const [location, setLocation] = useState('');
+  const [selectedCabana, setSelectedCabana] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  async function loadData() {
+    setLoading(true);
+    setError('');
+    const [cycleResult, cabinResult, groupResult, assignmentResult] = await Promise.all([
+      supabase.from('ciclos_escolares').select('id,anio,estado').order('anio',{ascending:false}),
+      supabase.from('cabanas').select('*').order('sexo').order('nombre'),
+      supabase.from('grupos_estudio').select('id,ciclo_id,nivel_numero,nivel_nombre,sexo,nombre,numero,historico,grupo_estudio_integrantes(id)').order('nivel_numero').order('sexo').order('numero'),
+      supabase.from('cabana_grupos').select('id,ciclo_id,cabana_id,grupo_id')
+    ]);
+    const failed = [cycleResult,cabinResult,groupResult,assignmentResult].find(x=>x.error);
+    if (failed) setError('No se pudo cargar el módulo de cabañas. Verifica los permisos y vuelve a actualizar.');
+    else {
+      setCycles(cycleResult.data||[]);
+      setCabanas(cabinResult.data||[]);
+      setGroups(groupResult.data||[]);
+      setAssignments(assignmentResult.data||[]);
+      const current = (cycleResult.data||[]).find(x=>x.anio===2026) || (cycleResult.data||[])[0];
+      setCycleId(old=>old||current?.id||'');
+    }
+    setLoading(false);
+  }
+  useEffect(()=>{loadData();},[]);
+  const selectedCycle = cycles.find(x=>x.id===cycleId);
+  const cycleCabanas = cabanas.filter(x=>x.ciclo_id===cycleId);
+  const cycleGroups = groups.filter(x=>x.ciclo_id===cycleId && !x.historico);
+  const cycleAssignments = assignments.filter(x=>x.ciclo_id===cycleId);
+  const assignedGroups = new Set(cycleAssignments.map(x=>x.grupo_id));
+  const groupSize = group => (group.grupo_estudio_integrantes||[]).length;
+  const assignedTo = cabana => cycleAssignments.filter(x=>x.cabana_id===cabana.id).map(x=>groups.find(g=>g.id===x.grupo_id)).filter(Boolean);
+  const occupancy = cabana => assignedTo(cabana).reduce((sum,g)=>sum+groupSize(g),0);
+  const availableGroups = cycleGroups.filter(g=>!assignedGroups.has(g.id));
+
+  async function addCabana(event) {
+    event.preventDefault();
+    if (!cycleId || !name.trim() || Number(capacity)<1) return;
+    setSaving(true); setError(''); setNotice('');
+    const result=await supabase.from('cabanas').insert({ciclo_id:cycleId,nombre:name.trim(),sexo,capacidad:Number(capacity),ubicacion:location.trim()||null});
+    if(result.error) setError(result.error.code==='23505'?'Ya existe una cabaña con ese nombre para este sexo y ciclo.':'No se pudo guardar la cabaña.');
+    else {setName('');setLocation('');setNotice('Cabaña agregada.');await loadData();}
+    setSaving(false);
+  }
+  async function assignGroup(event) {
+    event.preventDefault();
+    if(!selectedCabana||!selectedGroup)return;
+    setSaving(true);setError('');setNotice('');
+    const cabin=cycleCabanas.find(x=>x.id===selectedCabana);
+    const group=cycleGroups.find(x=>x.id===selectedGroup);
+    if(!cabin||!group||cabin.sexo!==group.sexo){setError('La cabaña y el grupo deben corresponder al mismo sexo.');setSaving(false);return;}
+    const result=await supabase.from('cabana_grupos').insert({ciclo_id:cycleId,cabana_id:selectedCabana,grupo_id:selectedGroup});
+    if(result.error) setError(result.error.message?.includes('capacidad')?'La capacidad no alcanza para alojar al grupo completo. Selecciona una cabaña con más lugares.':result.error.message?.includes('otro sexo')?'No se puede mezclar hermanos y hermanas en una misma cabaña.':'No se pudo asignar el grupo. Verifica si ya está alojado.');
+    else {setSelectedGroup('');setNotice('Grupo asignado completo.');await loadData();}
+    setSaving(false);
+  }
+  async function removeAssignment(item) {
+    if(!window.confirm('¿Retirar este grupo de la cabaña? El grupo de estudio no se modificará.'))return;
+    setSaving(true);setError('');
+    const result=await supabase.from('cabana_grupos').delete().eq('id',item.id);
+    if(result.error)setError('No se pudo retirar la asignación.');
+    else {setNotice('Asignación retirada. El grupo de estudio permanece intacto.');await loadData();}
+    setSaving(false);
+  }
+  async function updateCabana(cabana, nextCapacity, nextLocation) {
+    if(Number(nextCapacity)<occupancy(cabana)){setError('La capacidad no puede ser menor a la ocupación actual.');return;}
+    setSaving(true);setError('');
+    const result=await supabase.from('cabanas').update({capacidad:Number(nextCapacity),ubicacion:nextLocation.trim()||null}).eq('id',cabana.id);
+    if(result.error)setError('No se pudo actualizar la cabaña.');
+    else {setNotice('Datos de cabaña actualizados.');await loadData();}
+    setSaving(false);
+  }
+
+  return <section className="work-section">
+    <button className="back-button" type="button" onClick={onBack}>← Volver a módulos</button>
+    <div className="section-heading"><div><p className="eyebrow">ALOJAMIENTO POR GRUPOS COMPLETOS</p><h2>Cabañas</h2><p className="work-intro">Registra los espacios disponibles y asigna cada grupo de estudio completo a una cabaña del mismo sexo, respetando su capacidad.</p></div><span className="module-count">{cycleCabanas.length} cabañas</span></div>
+    {loading?<p className="empty-state">Cargando cabañas…</p>:<>
+      {error&&<p className="auth-error" role="alert">{error}</p>}
+      {notice&&<p className="field-hint" role="status">{notice}</p>}
+      <div className="finance-toolbar"><label htmlFor="cabana-cycle">Ciclo</label><select id="cabana-cycle" value={cycleId} onChange={e=>setCycleId(e.target.value)}>{cycles.map(x=><option key={x.id} value={x.id}>{x.anio} · {x.estado}</option>)}</select><button className="text-button" type="button" onClick={loadData} disabled={saving}>Actualizar</button></div>
+      <div className="cabin-summary"><article><span>Grupos de estudio</span><strong>{cycleGroups.length}</strong></article><article><span>Grupos alojados</span><strong>{cycleAssignments.length}</strong></article><article><span>Por asignar</span><strong>{availableGroups.length}</strong></article></div>
+      {selectedCycle?.estado!=='cerrado'&&<div className="cabin-forms">
+        <form className="profile-card cabin-form" onSubmit={addCabana}><p className="eyebrow">REGISTRAR ESPACIO</p><h3>Nueva cabaña</h3>
+          <label htmlFor="cabana-name">Nombre o número *</label><input id="cabana-name" value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Cabaña 1" required/>
+          <label htmlFor="cabana-sex">Para *</label><select id="cabana-sex" value={sex} onChange={e=>setSex(e.target.value)}><option value="F">Hermanas</option><option value="M">Hermanos</option></select>
+          <label htmlFor="cabana-capacity">Capacidad de personas *</label><input id="cabana-capacity" type="number" min="1" step="1" value={capacity} onChange={e=>setCapacity(e.target.value)} required/>
+          <label htmlFor="cabana-location">Ubicación / sector (opcional)</label><input id="cabana-location" value={location} onChange={e=>setLocation(e.target.value)} placeholder="Edificio, zona o referencia"/>
+          <button className="primary-button" type="submit" disabled={saving||!name.trim()||Number(capacity)<1}>{saving?'Guardando…':'Agregar cabaña'}</button>
+        </form>
+        <form className="profile-card cabin-form" onSubmit={assignGroup}><p className="eyebrow">ASIGNAR ALOJAMIENTO</p><h3>Asignar grupo completo</h3>
+          <label htmlFor="cabana-select">Cabaña *</label><select id="cabana-select" value={selectedCabana} onChange={e=>{setSelectedCabana(e.target.value);setSelectedGroup('');}} required><option value="">Seleccionar cabaña</option>{cycleCabanas.map(c=><option key={c.id} value={c.id}>{c.nombre} · {c.sexo==='F'?'Hermanas':'Hermanos'} · {occupancy(c)}/{c.capacidad} lugares</option>)}</select>
+          <label htmlFor="cabana-group-select">Grupo de estudio *</label><select id="cabana-group-select" value={selectedGroup} onChange={e=>setSelectedGroup(e.target.value)} required><option value="">Seleccionar grupo completo</option>{availableGroups.filter(g=>!selectedCabana||g.sexo===cycleCabanas.find(c=>c.id===selectedCabana)?.sexo).map(g=><option key={g.id} value={g.id}>{g.nombre} · N{g.nivel_numero} · {g.sexo==='F'?'Hermanas':'Hermanos'} · {groupSize(g)} integrantes</option>)}</select>
+          <p className="field-hint">El sistema no divide los grupos. Si no hay capacidad suficiente, crea o selecciona otra cabaña para alojar al grupo completo.</p>
+          <button className="primary-button" type="submit" disabled={saving||!selectedCabana||!selectedGroup}>Asignar grupo</button>
+        </form>
+      </div>}
+      <div className="cabin-grid">{cycleCabanas.map(cabana=>{
+        const members=assignedTo(cabana); const used=occupancy(cabana);
+        return <article className="cabin-card" key={cabana.id}><div className="cabin-card-heading"><div><span>{cabana.sexo==='F'?'Hermanas':'Hermanos'}{cabana.ubicacion?' · '+cabana.ubicacion:''}</span><h3>{cabana.nombre}</h3></div><strong>{used}/{cabana.capacidad}</strong></div>
+          <div className="cabin-capacity-track"><span style={{width:Math.min(100,cabana.capacidad?used/cabana.capacidad*100:0)+'%'}}/></div>
+          <div className="cabin-group-list">{members.map(g=>{const link=cycleAssignments.find(x=>x.grupo_id===g.id);return <div className="cabin-group-row" key={g.id}><span><strong>{g.nombre}</strong><small>Nivel {g.nivel_numero} · {groupSize(g)} integrantes</small></span><button className="text-button" type="button" onClick={()=>removeAssignment(link)} disabled={saving}>Retirar</button></div>;})}
+          {!members.length&&<p className="group-empty">Todavía no hay grupos asignados.</p>}</div>
+          <div className="cabin-edit-row"><label>Capacidad <input aria-label={'Capacidad de '+cabana.nombre} type="number" min={Math.max(1,used)} defaultValue={cabana.capacidad} key={cabana.id+'-'+cabana.capacidad}/></label><label>Ubicación <input aria-label={'Ubicación de '+cabana.nombre} defaultValue={cabana.ubicacion||''} key={cabana.id+'-loc-'+(cabana.ubicacion||'')} /></label><button className="text-button" type="button" disabled={saving} onClick={e=>{const box=e.currentTarget.parentElement;updateCabana(cabana,box.querySelector('input[type=number]').value,box.querySelector('input[type=text]').value);}}>Guardar cambios</button></div>
+        </article>;
+      })}
+      {!cycleCabanas.length&&<div className="empty-state">Todavía no hay cabañas configuradas para este ciclo. Agrega los espacios del lugar actual.</div>}
+      </div>
+    </>}
+  </section>;
+}
+
 function VisitorDemo() {
   const [section, setSection] = useState('Inicio');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [reportSelection, setReportSelection] = useState({ type: '', value: '' });
-  const [data, setData] = useState({ iglesias: [], participantes: [], inscripciones: [], movimientos: [], finanzas: [], niveles: [], grupos: [] });
-  const nav = [['Inicio','⌂'],['Iglesias','01'],['Participantes','02'],['Inscripciones','03'],['Finanzas','04'],['Reportes','05'],['Grupos de estudio','06']];
+  const [data, setData] = useState({ iglesias: [], participantes: [], inscripciones: [], movimientos: [], finanzas: [], niveles: [], grupos: [], cabanas: [] });
+  const nav = [['Inicio','⌂'],['Iglesias','01'],['Participantes','02'],['Inscripciones','03'],['Finanzas','04'],['Reportes','05'],['Grupos de estudio','06'],['Cabañas','07']];
   const money = value => new Intl.NumberFormat('es-HN',{style:'currency',currency:'HNL'}).format(Number(value || 0));
   const date = value => value ? new Date(value + 'T00:00:00').toLocaleDateString('es-HN') : '—';
 
@@ -229,11 +356,12 @@ function VisitorDemo() {
         supabase.from('visitor_finanzas_resumen').select('*').order('anio',{ascending:false}),
         supabase.from('visitor_ciclos_niveles').select('*').order('nivel_numero'),
         supabase.from('visitor_grupos_estudio').select('*').order('anio',{ascending:false}).order('nivel_numero').order('sexo').order('grupo_numero'),
+        supabase.from('visitor_cabanas').select('*').order('anio',{ascending:false}).order('sexo').order('cabana_nombre'),
       ]);
       if (!active) return;
       const failed = results.find(x => x.error);
       if (failed) setError('No se pudo cargar toda la información. Actualiza el enlace o comunícate con Coordinación.');
-      else setData({ iglesias:results[0].data||[], participantes:results[1].data||[], inscripciones:results[2].data||[], movimientos:results[3].data||[], finanzas:results[4].data||[], niveles:results[5].data||[], grupos:results[6].data||[] });
+      else setData({ iglesias:results[0].data||[], participantes:results[1].data||[], inscripciones:results[2].data||[], movimientos:results[3].data||[], finanzas:results[4].data||[], niveles:results[5].data||[], grupos:results[6].data||[], cabanas:results[7].data||[] });
       setLoading(false);
     }
     load();
@@ -293,6 +421,7 @@ function VisitorDemo() {
               </div>
             </>}
 
+            {section === 'Cabañas' && <><p className="visitor-lead">Distribución general del alojamiento por ciclo. Se muestran capacidades y cantidades, sin nombres de integrantes.</p><div className="visitor-group-grid">{data.cabanas.filter(c=>c.anio===2026).map(c=><article className="visitor-group-card" key={c.cabana_id}><div><span>{c.anio} · {c.sexo==='F'?'Hermanas':'Hermanos'}</span><strong>{c.ubicacion||'Alojamiento'}</strong></div><h3>{c.cabana_nombre}</h3><p>{c.total_integrantes} de {c.capacidad} lugares ocupados</p><small>{c.lugares_disponibles} lugares disponibles · {c.total_grupos} grupos completos</small></article>)}{!data.cabanas.some(c=>c.anio===2026)&&<div className="visitor-empty">Aún no hay cabañas configuradas para este ciclo.</div>}</div></>}
             {section === 'Grupos de estudio' && <>
               <p className="visitor-lead">Consulta histórica y estructura general de los grupos por nivel y sexo. Los nombres de integrantes se reservan para Coordinación General.</p>
               <div className="visitor-group-grid">
@@ -1644,7 +1773,7 @@ export default function App() {
           <button className={`sidebar-link ${activeModule === '' ? 'active' : ''}`} type="button" onClick={() => setActiveModule('')}>
             <span className="sidebar-link-number">⌂</span><span>Inicio</span>
           </button>
-          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio', 'Cabañas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
             <button
               className={`sidebar-link ${activeModule === module.title ? 'active' : ''}`}
               key={module.number}
@@ -1658,6 +1787,8 @@ export default function App() {
         <div className="app-main-content">
       {activeModule === 'Grupos de estudio' ? (
         <GruposEstudio onBack={() => setActiveModule('')} />
+      ) : activeModule === 'Cabañas' ? (
+        <Cabanas onBack={() => setActiveModule('')} />
       ) : activeModule === 'Iglesias' ? (
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
@@ -2581,11 +2712,11 @@ export default function App() {
           <section className="modules-section">
             <div className="section-heading">
               <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
-              <span className="module-count">06 módulos</span>
+              <span className="module-count">07 módulos</span>
             </div>
             <div className="module-grid">
               {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones', 'Grupos de estudio'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones', 'Grupos de estudio', 'Cabañas'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
