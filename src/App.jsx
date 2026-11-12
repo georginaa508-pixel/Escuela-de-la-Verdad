@@ -986,7 +986,7 @@ export default function App() {
 
   function exportReports() {
     const workbook = XLSX.utils.book_new();
-    const participantRows = reportActiveParticipants.map((person) => {
+    const participantRows = reportParticipants.map((person) => {
       const enrollment = reportEnrollmentByParticipant.get(person.id);
       return {
         Código: person.codigo || '',
