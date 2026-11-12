@@ -7,9 +7,9 @@ const modules = [
   { number: '02', title: 'Participantes', description: 'Datos y seguimiento de cada participante.' },
   { number: '03', title: 'Inscripciones', description: 'Inscripciones, niveles y estado de participación.' },
   { number: '04', title: 'Finanzas', description: 'Inscripciones, ofrendas, ingresos y gastos.' },
-  { number: '05', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
-  { number: '06', title: 'Grupos de estudio', description: 'Organización de grupos por nivel y sexo.' },
-  { number: '07', title: 'Cabañas', description: 'Alojamiento por grupos completos y capacidad.' },
+  { number: '05', title: 'Grupos de estudio', description: 'Organización de grupos por nivel y sexo.' },
+  { number: '06', title: 'Cabañas', description: 'Alojamiento por grupos completos y capacidad.' },
+  { number: '07', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
 ];
 
 function getCycleDates(startDate, endDate) {
@@ -340,7 +340,7 @@ function VisitorDemo() {
   const [search, setSearch] = useState('');
   const [reportSelection, setReportSelection] = useState({ type: '', value: '' });
   const [data, setData] = useState({ iglesias: [], participantes: [], inscripciones: [], movimientos: [], finanzas: [], niveles: [], grupos: [], cabanas: [] });
-  const nav = [['Inicio','⌂'],['Iglesias','01'],['Participantes','02'],['Inscripciones','03'],['Finanzas','04'],['Reportes','05'],['Grupos de estudio','06'],['Cabañas','07']];
+  const nav = [['Inicio','⌂'],['Iglesias','01'],['Participantes','02'],['Inscripciones','03'],['Finanzas','04'],['Grupos de estudio','05'],['Cabañas','06'],['Reportes','07']];
   const money = value => new Intl.NumberFormat('es-HN',{style:'currency',currency:'HNL'}).format(Number(value || 0));
   const date = value => value ? new Date(value + 'T00:00:00').toLocaleDateString('es-HN') : '—';
 
