@@ -9,7 +9,8 @@ const modules = [
   { number: '04', title: 'Finanzas', description: 'Inscripciones, ofrendas, ingresos y gastos.' },
   { number: '05', title: 'Grupos de estudio', description: 'Organización de grupos por nivel y sexo.' },
   { number: '06', title: 'Cabañas', description: 'Alojamiento por grupos completos y capacidad.' },
-  { number: '07', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
+  { number: '07', title: 'Administración de usuarios', description: 'Cuentas, perfiles y permisos de acceso.' },
+  { number: '08', title: 'Reportes', description: 'Consultas y resúmenes para coordinación.' },
 ];
 
 function getCycleDates(startDate, endDate) {
@@ -495,6 +496,155 @@ function VisitorDemo() {
       </div>
       <footer className="visitor-footer">Escuela de la Verdad · Honduras <span>Acceso por enlace · Solo lectura</span></footer>
     </main>
+  );
+}
+
+
+const USER_ROLES = [
+  { value: 'coordinacion_general', label: 'Coordinación General' },
+  { value: 'coordinador', label: 'Coordinador' },
+  { value: 'instructor', label: 'Instructor' },
+  { value: 'finanzas', label: 'Finanzas' },
+  { value: 'consulta', label: 'Consulta' },
+];
+
+function AdministracionUsuarios({ onBack, currentUserId }) {
+  const [users, setUsers] = useState([]);
+  const [churches, setChurches] = useState([]);
+  const [drafts, setDrafts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [name, setName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('coordinador');
+  const [newChurch, setNewChurch] = useState('');
+
+  async function callAdmin(body) {
+    const { data, error: invokeError } = await supabase.functions.invoke('administrar-usuarios', { body });
+    if (invokeError) {
+      let message = invokeError.message || 'No se pudo completar la operación.';
+      try {
+        const payload = await invokeError.context?.json();
+        if (payload?.error) message = payload.error;
+      } catch { /* Keep the original error message. */ }
+      throw new Error(message);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  async function loadUsers() {
+    setLoading(true);
+    setError('');
+    try {
+      const [result, churchResult] = await Promise.all([
+        callAdmin({ action: 'list' }),
+        supabase.from('iglesias').select('id,nombre').order('nombre'),
+      ]);
+      if (churchResult.error) throw new Error('No se pudo cargar la lista de iglesias.');
+      setUsers(result.users || []);
+      setChurches(churchResult.data || []);
+      setDrafts(Object.fromEntries((result.users || []).map(user => [user.id, user.rol])));
+    } catch (err) {
+      setError(err.message || 'No se pudieron cargar los usuarios.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadUsers(); }, []);
+
+  async function createUser(event) {
+    event.preventDefault();
+    setSaving(true); setError(''); setNotice('');
+    try {
+      await callAdmin({
+        action: 'create',
+        nombre: name.trim(),
+        email: newEmail.trim(),
+        password: newPassword,
+        rol: newRole,
+        iglesia_id: newChurch || null,
+      });
+      setName(''); setNewEmail(''); setNewPassword(''); setNewRole('coordinador'); setNewChurch('');
+      setNotice('La cuenta se creó correctamente. Comparte la contraseña inicial de forma privada.');
+      await loadUsers();
+    } catch (err) {
+      setError(err.message || 'No se pudo crear la cuenta.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveUser(user) {
+    setSaving(true); setError(''); setNotice('');
+    try {
+      await callAdmin({ action: 'update', user_id: user.id, rol: drafts[user.id] || user.rol, activo: user.activo });
+      setNotice('Cambios guardados para ' + (user.nombre || user.email) + '.');
+      await loadUsers();
+    } catch (err) {
+      setError(err.message || 'No se pudieron guardar los cambios.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleUser(user) {
+    const action = user.activo ? 'desactivar' : 'activar';
+    if (!window.confirm('¿Deseas ' + action + ' la cuenta de ' + (user.nombre || user.email) + '?')) return;
+    setSaving(true); setError(''); setNotice('');
+    try {
+      await callAdmin({ action: 'update', user_id: user.id, rol: drafts[user.id] || user.rol, activo: !user.activo });
+      setNotice('La cuenta se ' + (user.activo ? 'desactivó' : 'activó') + ' correctamente.');
+      await loadUsers();
+    } catch (err) {
+      setError(err.message || 'No se pudo cambiar el estado de la cuenta.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="work-section">
+      <button className="back-button" type="button" onClick={onBack}>← Volver a módulos</button>
+      <div className="section-heading">
+        <div><p className="eyebrow">ACCESOS Y PERMISOS</p><h2>Administración de usuarios</h2><p className="work-intro">Crea cuentas para el equipo de la Escuela de la Verdad y asigna el acceso correspondiente a cada persona.</p></div>
+        <span className="module-count">{users.length} cuentas</span>
+      </div>
+      {error && <p className="auth-error" role="alert">{error}</p>}
+      {notice && <p className="field-hint" role="status">{notice}</p>}
+      <form className="church-form user-create-form" onSubmit={createUser}>
+        <p className="eyebrow">NUEVA CUENTA</p>
+        <h3>Agregar usuario</h3>
+        <div className="user-form-grid">
+          <label>Nombre completo<input value={name} onChange={e=>setName(e.target.value)} maxLength={120} autoComplete="name" required /></label>
+          <label>Correo electrónico<input type="email" value={newEmail} onChange={e=>setNewEmail(e.target.value)} autoComplete="off" required /></label>
+          <label>Perfil<select value={newRole} onChange={e=>setNewRole(e.target.value)}>{USER_ROLES.map(role=><option key={role.value} value={role.value}>{role.label}</option>)}</select></label>
+          <label>Iglesia (opcional)<select value={newChurch} onChange={e=>setNewChurch(e.target.value)}><option value="">Sin iglesia asignada</option>{churches.map(church=><option key={church.id} value={church.id}>{church.nombre}</option>)}</select></label>
+          <label className="user-password-field">Contraseña inicial<input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} minLength={10} autoComplete="new-password" required /><small>Mínimo 10 caracteres, con al menos una letra y un número. Compártela en privado.</small></label>
+        </div>
+        <div className="participant-submit"><button className="primary-button" type="submit" disabled={saving || !name.trim() || !newEmail.trim() || newPassword.length < 10}>{saving ? 'Guardando…' : 'Crear cuenta'}</button></div>
+      </form>
+      <div className="user-list-heading"><div><p className="eyebrow">CUENTAS REGISTRADAS</p><h3>Usuarios del sistema</h3></div><button className="text-button" type="button" onClick={loadUsers} disabled={loading || saving}>Actualizar</button></div>
+      {loading ? <p className="empty-state">Cargando usuarios…</p> : users.length === 0 ? <p className="empty-state">No hay cuentas registradas.</p> : (
+        <div className="user-list">
+          {users.map(user => (
+            <article className="user-row" key={user.id}>
+              <div className="user-info"><strong>{user.nombre || 'Nombre no registrado'}</strong><span>{user.email}</span><small>Creada: {user.created_at ? new Date(user.created_at).toLocaleDateString('es-HN') : '—'}{user.last_sign_in_at ? ' · Último acceso: ' + new Date(user.last_sign_in_at).toLocaleDateString('es-HN') : ' · Sin iniciar sesión'}</small><span className={user.activo ? 'status-active' : 'status-inactive'}>{user.activo ? 'Activa' : 'Inactiva'}</span></div>
+              <div className="user-actions">
+                <label>Perfil<select value={drafts[user.id] || user.rol} disabled={saving || user.id === currentUserId} onChange={e=>setDrafts(current=>({...current,[user.id]:e.target.value}))}>{USER_ROLES.map(role=><option key={role.value} value={role.value}>{role.label}</option>)}</select></label>
+                <button className="text-button" type="button" onClick={()=>saveUser(user)} disabled={saving || user.id === currentUserId || (drafts[user.id] || user.rol) === user.rol}>Guardar perfil</button>
+                <button className="text-button" type="button" onClick={()=>toggleUser(user)} disabled={saving || user.id === currentUserId}>{user.activo ? 'Desactivar' : 'Activar'}</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+      <p className="user-admin-note">Por seguridad, esta sección solo está disponible para Coordinación General. No se permite desactivar ni cambiar el perfil de la cuenta con la que tienes abierta esta sesión.</p>
+    </section>
   );
 }
 
@@ -1809,7 +1959,7 @@ export default function App() {
           <button className={`sidebar-link ${activeModule === '' ? 'active' : ''}`} type="button" onClick={() => setActiveModule('')}>
             <span className="sidebar-link-number">⌂</span><span>Inicio</span>
           </button>
-          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio', 'Cabañas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+          {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio', 'Cabañas', 'Administración de usuarios'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
             <button
               className={`sidebar-link ${activeModule === module.title ? 'active' : ''}`}
               key={module.number}
@@ -1821,7 +1971,9 @@ export default function App() {
           ))}
         </aside>
         <div className="app-main-content">
-      {activeModule === 'Grupos de estudio' ? (
+      {activeModule === 'Administración de usuarios' && profile?.rol === 'coordinacion_general' ? (
+        <AdministracionUsuarios onBack={() => setActiveModule('')} currentUserId={session.user.id} />
+      ) : activeModule === 'Grupos de estudio' ? (
         <GruposEstudio onBack={() => setActiveModule('')} globalCycleId={globalCycleId} onGlobalCycleChange={setGlobalCycleId} />
       ) : activeModule === 'Cabañas' ? (
         <Cabanas onBack={() => setActiveModule('')} globalCycleId={globalCycleId} onGlobalCycleChange={setGlobalCycleId} />
@@ -2748,11 +2900,11 @@ export default function App() {
           <section className="modules-section">
             <div className="section-heading">
               <div><p className="eyebrow">ÁREAS DEL SISTEMA</p><h2>Módulos de trabajo</h2></div>
-              <span className="module-count">07 módulos</span>
+              <span className="module-count">08 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio', 'Cabañas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
-                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones', 'Grupos de estudio', 'Cabañas'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
+              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio', 'Cabañas', 'Administración de usuarios'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+                <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones', 'Grupos de estudio', 'Cabañas', 'Administración de usuarios'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
                   <p>{module.description}</p>
