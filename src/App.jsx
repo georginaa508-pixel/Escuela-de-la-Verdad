@@ -42,7 +42,7 @@ function calculateAge(dateString) {
 
 
 
-function GruposEstudio({ onBack }) {
+function GruposEstudio({ onBack, globalCycleId, onGlobalCycleChange }) {
   const [cycles, setCycles] = useState([]);
   const [levels, setLevels] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -76,13 +76,14 @@ function GruposEstudio({ onBack }) {
       setParticipants(peopleResult.data || []);
       setEnrollments(enrollmentResult.data || []);
       const defaultCycle = (cycleResult.data || []).find(x => x.anio === 2026) || (cycleResult.data || [])[0];
-      setCycleId(current => current || defaultCycle?.id || '');
+      setCycleId(current => globalCycleId || current || defaultCycle?.id || '');
       setNewLevelId(current => current || (levelResult.data || [])[0]?.id || '');
     }
     setLoading(false);
   }
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (globalCycleId && globalCycleId !== cycleId) setCycleId(globalCycleId); }, [globalCycleId]);
 
   const selectedCycle = cycles.find(x => x.id === cycleId);
   const cycleGroups = groups.filter(x => x.ciclo_id === cycleId);
@@ -154,7 +155,7 @@ function GruposEstudio({ onBack }) {
         {error && <p className="auth-error" role="alert">{error}</p>}
         <div className="finance-toolbar">
           <label htmlFor="study-group-cycle">Ciclo</label>
-          <select id="study-group-cycle" value={cycleId} onChange={e=>setCycleId(e.target.value)}>
+          <select id="study-group-cycle" value={cycleId} onChange={e=>{setCycleId(e.target.value);onGlobalCycleChange?.(e.target.value);}}>
             {cycles.map(x=><option key={x.id} value={x.id}>{x.anio} · {x.estado}</option>)}
           </select>
           <button className="text-button" type="button" onClick={loadData} disabled={saving}>Actualizar</button>
@@ -208,7 +209,7 @@ function GruposEstudio({ onBack }) {
 }
 
 
-function Cabanas({ onBack }) {
+function Cabanas({ onBack, globalCycleId, onGlobalCycleChange }) {
   const [cycles, setCycles] = useState([]);
   const [groups, setGroups] = useState([]);
   const [cabanas, setCabanas] = useState([]);
@@ -242,11 +243,12 @@ function Cabanas({ onBack }) {
       setGroups(groupResult.data||[]);
       setAssignments(assignmentResult.data||[]);
       const current = (cycleResult.data||[]).find(x=>x.anio===2026) || (cycleResult.data||[])[0];
-      setCycleId(old=>old||current?.id||'');
+      setCycleId(old=>globalCycleId||old||current?.id||'');
     }
     setLoading(false);
   }
   useEffect(()=>{loadData();},[]);
+  useEffect(()=>{if(globalCycleId&&globalCycleId!==cycleId)setCycleId(globalCycleId);},[globalCycleId]);
   const selectedCycle = cycles.find(x=>x.id===cycleId);
   const cycleCabanas = cabanas.filter(x=>x.ciclo_id===cycleId);
   const cycleGroups = groups.filter(x=>x.ciclo_id===cycleId && !x.historico);
@@ -301,7 +303,7 @@ function Cabanas({ onBack }) {
     {loading?<p className="empty-state">Cargando cabañas…</p>:<>
       {error&&<p className="auth-error" role="alert">{error}</p>}
       {notice&&<p className="field-hint" role="status">{notice}</p>}
-      <div className="finance-toolbar"><label htmlFor="cabana-cycle">Ciclo</label><select id="cabana-cycle" value={cycleId} onChange={e=>setCycleId(e.target.value)}>{cycles.map(x=><option key={x.id} value={x.id}>{x.anio} · {x.estado}</option>)}</select><button className="text-button" type="button" onClick={loadData} disabled={saving}>Actualizar</button></div>
+      <div className="finance-toolbar"><label htmlFor="cabana-cycle">Ciclo</label><select id="cabana-cycle" value={cycleId} onChange={e=>{setCycleId(e.target.value);onGlobalCycleChange?.(e.target.value);}}>{cycles.map(x=><option key={x.id} value={x.id}>{x.anio} · {x.estado}</option>)}</select><button className="text-button" type="button" onClick={loadData} disabled={saving}>Actualizar</button></div>
       <div className="cabin-summary"><article><span>Grupos de estudio</span><strong>{cycleGroups.length}</strong></article><article><span>Grupos alojados</span><strong>{cycleAssignments.length}</strong></article><article><span>Por asignar</span><strong>{availableGroups.length}</strong></article></div>
       {selectedCycle?.estado!=='cerrado'&&<div className="cabin-forms">
         <form className="profile-card cabin-form" onSubmit={addCabana}><p className="eyebrow">REGISTRAR ESPACIO</p><h3>Nueva cabaña</h3>
@@ -335,6 +337,7 @@ function Cabanas({ onBack }) {
 
 function VisitorDemo() {
   const [section, setSection] = useState('Inicio');
+  const [selectedYear, setSelectedYear] = useState(2026);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -368,16 +371,21 @@ function VisitorDemo() {
     return () => { active = false; };
   }, []);
 
-  const filteredPeople = data.participantes.filter(p => [p.nombre_completo,p.iglesia,p.tipo_participante].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()));
-  const filteredEnrollments = data.inscripciones.filter(p => [p.nombre_completo,p.iglesia,p.nivel,p.anio,p.estado].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()));
-  const currentFinance = data.finanzas.find(x => x.anio === 2026) || data.finanzas[0];
+  const cycleEnrollmentRows = data.inscripciones.filter(x => Number(x.anio) === Number(selectedYear));
+  const cycleParticipantIds = new Set(cycleEnrollmentRows.map(x => x.participante_id).filter(Boolean));
+  const filteredPeople = data.participantes.filter(p => cycleParticipantIds.has(p.id) && [p.nombre_completo,p.iglesia,p.tipo_participante].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()));
+  const filteredEnrollments = cycleEnrollmentRows.filter(p => [p.nombre_completo,p.iglesia,p.nivel,p.anio,p.estado].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()));
+  const currentFinance = data.finanzas.find(x => Number(x.anio) === Number(selectedYear));
+  const cycleMovements = data.movimientos.filter(x => Number(x.anio) === Number(selectedYear));
+  const cycleGroups = data.grupos.filter(x => Number(x.anio) === Number(selectedYear));
+  const cycleCabanas = data.cabanas.filter(x => Number(x.anio) === Number(selectedYear));
   const levels = [...new Map(data.niveles.map(x => [x.nivel_numero,x])).values()].sort((a,b)=>a.nivel_numero-b.nivel_numero);
 
   return (
     <main className="visitor-shell">
       <header className="visitor-topbar">
         <div className="visitor-brand"><img src="/logo-escuela-verdad.png" alt="Escuela de la Verdad" /><div><strong>Escuela de la Verdad</strong><span>HONDURAS · DIOS · EDUCACIÓN · CARÁCTER</span></div></div>
-        <span className="visitor-tag">ACCESO POR ENLACE · SOLO LECTURA</span>
+        <label className="visitor-cycle-control"><span>Ciclo</span><select aria-label="Seleccionar ciclo" value={selectedYear} onChange={e=>setSelectedYear(Number(e.target.value))}>{[...new Set([2026,2025,...data.inscripciones.map(x=>Number(x.anio)),...data.finanzas.map(x=>Number(x.anio))].filter(Number.isFinite))].sort((a,b)=>b-a).map(year=><option key={year} value={year}>{year}{year===2026?' · Actual':' · Histórico'}</option>)}</select></label><span className="visitor-tag">ACCESO POR ENLACE · SOLO LECTURA</span>
       </header>
       <div className="visitor-layout">
         <section className="visitor-content">
@@ -388,9 +396,9 @@ function VisitorDemo() {
             <p className="visitor-lead">Consulta general de los registros reales de participantes, localidades, inscripciones y finanzas.</p>
             <div className="visitor-stats">
               <article><span>Localidades</span><strong>{data.iglesias.length}</strong><small>Registradas en el sistema</small></article>
-              <article><span>Participantes</span><strong>{data.participantes.length}</strong><small>Registros existentes</small></article>
-              <article><span>Inscripciones</span><strong>{data.inscripciones.length}</strong><small>Todos los ciclos</small></article>
-              <article><span>Ciclo en preparación</span><strong>2026</strong><small>26–31 de diciembre</small></article>
+              <article><span>Participantes</span><strong>{cycleParticipantIds.size}</strong><small>Inscritos en {selectedYear}</small></article>
+              <article><span>Inscripciones</span><strong>{cycleEnrollmentRows.length}</strong><small>Registros de {selectedYear}</small></article>
+              <article><span>Ciclo seleccionado</span><strong>{selectedYear}</strong><small>{selectedYear===2026?'26–31 de diciembre':'Consulta histórica'}</small></article>
             </div>
             <h2>Conoce los módulos</h2><div className="visitor-module-grid">
               {nav.slice(1).map(([label,number])=><button key={label} onClick={()=>{setSection(label);setSearch('');}}><span>{number}</span><strong>{label}</strong><small>{({Iglesias:'Localidades y cantidad de participantes.',Participantes:'Listado general de personas registradas.',Inscripciones:'Ciclos, niveles y estado de participación.',Finanzas:'Resumen de ingresos, egresos y cuotas.',Reportes:'Resumen por localidad y nivel.','Grupos de estudio':'Grupos históricos y estructura por nivel y sexo.','Cabañas':'Distribución general del alojamiento y capacidad.'})[label]}</small></button>)}
@@ -405,7 +413,7 @@ function VisitorDemo() {
               </div>
             </>}
             {section === 'Participantes' && <>
-              <p className="visitor-lead">{data.participantes.length} registros reales. Busca por nombre, localidad o tipo.</p>
+              <p className="visitor-lead">{cycleParticipantIds.size} participantes inscritos en {selectedYear}. Busca por nombre, localidad o tipo.</p>
               <input className="visitor-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar participante o localidad…" />
               <div className="visitor-table visitor-scroll-table"><div className="visitor-table-head visitor-participant-grid"><span>Nombre</span><span>Localidad</span><span>Asiste como</span></div>
                 {filteredPeople.map(x=><div className="visitor-table-row visitor-participant-grid" key={x.id}><span>{x.nombre_completo}</span><span>{x.iglesia||'—'}</span><span>{x.tipo_participante||'—'}</span></div>)}
@@ -421,11 +429,11 @@ function VisitorDemo() {
               </div>
             </>}
 
-            {section === 'Cabañas' && <><p className="visitor-lead">Distribución general del alojamiento por ciclo. Se muestran capacidades y cantidades, sin nombres de integrantes.</p><div className="visitor-group-grid">{data.cabanas.filter(c=>c.anio===2026).map(c=><article className="visitor-group-card" key={c.cabana_id}><div><span>{c.anio} · {c.sexo==='F'?'Hermanas':'Hermanos'}</span><strong>{c.ubicacion||'Alojamiento'}</strong></div><h3>{c.cabana_nombre}</h3><p>{c.total_integrantes} de {c.capacidad} lugares ocupados</p><small>{c.lugares_disponibles} lugares disponibles · {c.total_grupos} grupos completos</small></article>)}{!data.cabanas.some(c=>c.anio===2026)&&<div className="visitor-empty">Aún no hay cabañas configuradas para este ciclo.</div>}</div></>}
+            {section === 'Cabañas' && <><p className="visitor-lead">Distribución general del alojamiento por ciclo. Se muestran capacidades y cantidades, sin nombres de integrantes.</p><div className="visitor-group-grid">{cycleCabanas.map(c=><article className="visitor-group-card" key={c.cabana_id}><div><span>{c.anio} · {c.sexo==='F'?'Hermanas':'Hermanos'}</span><strong>{c.ubicacion||'Alojamiento'}</strong></div><h3>{c.cabana_nombre}</h3><p>{c.total_integrantes} de {c.capacidad} lugares ocupados</p><small>{c.lugares_disponibles} lugares disponibles · {c.total_grupos} grupos completos</small></article>)}{!cycleCabanas.length&&<div className="visitor-empty">Aún no hay cabañas configuradas para este ciclo.</div>}</div></>}
             {section === 'Grupos de estudio' && <>
               <p className="visitor-lead">Consulta histórica y estructura general de los grupos por nivel y sexo. Los nombres de integrantes se reservan para Coordinación General.</p>
               <div className="visitor-group-grid">
-                {data.grupos.map(group=><article className="visitor-group-card" key={group.grupo_id}>
+                {cycleGroups.map(group=><article className="visitor-group-card" key={group.grupo_id}>
                   <div><span>{group.anio} · Nivel {group.nivel_numero}</span><strong>{group.nivel_nombre}</strong></div>
                   <h3>{group.grupo_nombre}</h3>
                   <p>{group.sexo === 'F' ? 'Femenino' : 'Masculino'} · {group.total_integrantes} integrantes</p>
@@ -447,9 +455,9 @@ function VisitorDemo() {
                 {data.finanzas.map(x=><div className="visitor-table-row visitor-finance-cycle-grid" key={x.id}><span>{x.anio}</span><span>{money(x.ingresos)}</span><span>{money(x.egresos)}</span><span>{money(x.saldo_movimientos)}</span></div>)}
               </div>
               <h2 className="visitor-subheading">Movimientos registrados</h2>
-              {!data.movimientos.length?<p className="visitor-empty">Todavía no hay movimientos financieros registrados en el sistema.</p>:
+              {!cycleMovements.length?<p className="visitor-empty">Todavía no hay movimientos financieros registrados en el sistema.</p>:
                 <div className="visitor-table visitor-scroll-table"><div className="visitor-table-head visitor-movement-grid"><span>Fecha</span><span>Ciclo</span><span>Tipo</span><span>Concepto</span><span>Monto</span></div>
-                  {data.movimientos.map(x=><div className="visitor-table-row visitor-movement-grid" key={x.id}><span>{date(x.fecha)}</span><span>{x.anio||'—'}</span><span>{x.tipo}</span><span>{x.concepto}</span><span>{money(x.monto)}</span></div>)}
+                  {cycleMovements.map(x=><div className="visitor-table-row visitor-movement-grid" key={x.id}><span>{date(x.fecha)}</span><span>{x.anio||'—'}</span><span>{x.tipo}</span><span>{x.concepto}</span><span>{money(x.monto)}</span></div>)}
                 </div>}
             </>}
             {section === 'Reportes' && <>
@@ -503,6 +511,8 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [activeModule, setActiveModule] = useState('');
+  const [globalCycles, setGlobalCycles] = useState([]);
+  const [globalCycleId, setGlobalCycleId] = useState('');
 
   useEffect(() => {
     if (activeModule) window.scrollTo({ top: 0, behavior: 'auto' });
@@ -663,6 +673,31 @@ export default function App() {
 
     return () => { active = false; };
   }, [session]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return undefined;
+    let active = true;
+    supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }).then(({ data, error: cycleError }) => {
+      if (!active || cycleError) return;
+      const rows = data || [];
+      setGlobalCycles(rows);
+      const preferred = rows.find((cycle) => cycle.anio === 2026) || rows[0];
+      setGlobalCycleId((current) => current || preferred?.id || '');
+    });
+    return () => { active = false; };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!globalCycleId) return;
+    setEnrollmentCycleId(globalCycleId);
+    setSelectedEnrollmentIds([]);
+    setEnrollmentServerLevels({});
+    setEnrollmentInitialLevels({});
+    setEnrollmentSupportDays({});
+    setEnrollmentSupportParticipation({});
+    setFinanceCycleId(globalCycleId);
+    setReportCycleId(globalCycleId);
+  }, [globalCycleId]);
 
   async function loadChurches() {
     setChurchesLoading(true);
@@ -1761,6 +1796,7 @@ export default function App() {
     <main className="page-shell">
       <header className="topbar">
         <span className="eyebrow">HONDURAS</span>
+        <label className="global-cycle-control"><span>Ciclo</span><select aria-label="Ciclo general de la Escuela de la Verdad" value={globalCycleId} onChange={(event) => setGlobalCycleId(event.target.value)}><option value="">Seleccionar</option>{globalCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio}{cycle.anio===2025?' · Histórico':cycle.anio===2026?' · Actual':''}</option>)}</select></label>
         <div className="account-area">
           <span className="account-email">{session.user.email}</span>
           <button className="logout-button" type="button" onClick={handleLogout}>Cerrar sesión</button>
@@ -1786,9 +1822,9 @@ export default function App() {
         </aside>
         <div className="app-main-content">
       {activeModule === 'Grupos de estudio' ? (
-        <GruposEstudio onBack={() => setActiveModule('')} />
+        <GruposEstudio onBack={() => setActiveModule('')} globalCycleId={globalCycleId} onGlobalCycleChange={setGlobalCycleId} />
       ) : activeModule === 'Cabañas' ? (
-        <Cabanas onBack={() => setActiveModule('')} />
+        <Cabanas onBack={() => setActiveModule('')} globalCycleId={globalCycleId} onGlobalCycleChange={setGlobalCycleId} />
       ) : activeModule === 'Iglesias' ? (
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
@@ -1828,7 +1864,7 @@ export default function App() {
           </div>
           <div className="finance-toolbar">
             <label htmlFor="finance-cycle">Ciclo</label>
-            <select id="finance-cycle" value={financeCycleId} onChange={(event) => setFinanceCycleId(event.target.value)}>
+            <select id="finance-cycle" value={financeCycleId} onChange={(event) => { setFinanceCycleId(event.target.value); setGlobalCycleId(event.target.value); }}>
               <option value="">Seleccionar ciclo</option>
               {financeCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
             </select>
@@ -2011,7 +2047,7 @@ export default function App() {
           )}
           <div className="finance-toolbar">
             <label htmlFor="report-cycle">Ciclo</label>
-            <select id="report-cycle" value={reportCycleId} onChange={(event) => setReportCycleId(event.target.value)}><option value="">Seleccionar ciclo</option>{reportCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}</select>
+            <select id="report-cycle" value={reportCycleId} onChange={(event) => { setReportCycleId(event.target.value); setGlobalCycleId(event.target.value); }}><option value="">Seleccionar ciclo</option>{reportCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}</select>
             <button className="text-button" type="button" onClick={loadReportData} disabled={reportLoading}>Actualizar datos</button>
             <button className="text-button report-print-trigger" type="button" onClick={() => window.print()} disabled={reportLoading || !reportCycleId || reportFilteredParticipants.length === 0}>Imprimir listado</button>
             <button className="primary-button" type="button" onClick={exportReports} disabled={reportLoading || !reportCycleId}>Descargar Excel</button>
@@ -2138,7 +2174,7 @@ export default function App() {
             <div className="participant-fields enrollment-fields">
               <div className="participant-field">
                 <label htmlFor="enrollment-cycle">Ciclo *</label>
-                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialLevels({}); setEnrollmentSupportDays({}); setEnrollmentSupportParticipation({}); }} required>
+                <select id="enrollment-cycle" value={enrollmentCycleId} onChange={(event) => { setEnrollmentCycleId(event.target.value); setGlobalCycleId(event.target.value); setSelectedEnrollmentIds([]); setEnrollmentServerLevels({}); setEnrollmentInitialLevels({}); setEnrollmentSupportDays({}); setEnrollmentSupportParticipation({}); }} required>
                   <option value="">Seleccionar ciclo</option>
                   {enrollmentCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}
                 </select>
@@ -2358,7 +2394,7 @@ export default function App() {
         <section className="work-section">
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
           <div className="section-heading">
-            <div><p className="eyebrow">REGISTRO GENERAL</p><h2>Participantes</h2><p className="work-intro">Registra a cada joven o servidor una sola vez y vincúlalo con su iglesia.</p></div>
+            <div><p className="eyebrow">REGISTRO GENERAL</p><h2>Participantes</h2><p className="work-intro">Registra a cada joven o servidor una sola vez y vincúlalo con su iglesia. Este expediente es general; las inscripciones se consultan por ciclo.</p></div>
             <span className="module-count">{participants.length} registrados</span>
           </div>
 
