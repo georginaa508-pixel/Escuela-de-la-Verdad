@@ -269,6 +269,7 @@ export default function App() {
   const [reportFilterLevel, setReportFilterLevel] = useState('todos');
   const [reportFilterType, setReportFilterType] = useState('todos');
   const [reportFilterStatus, setReportFilterStatus] = useState('todos');
+  const [reportBreakdown, setReportBreakdown] = useState({ type: '', id: '' });
   const [reportParticipants, setReportParticipants] = useState([]);
   const [reportChurches, setReportChurches] = useState([]);
   const [reportLevels, setReportLevels] = useState([]);
@@ -1108,6 +1109,40 @@ export default function App() {
     nivel: level.nombre,
     cantidad: reportCycleEnrollments.filter((item) => item.nivel_id === level.id).length,
   })).filter((item) => item.cantidad > 0);
+  const reportBreakdownLevel = reportBreakdown.type === 'nivel'
+    ? reportLevels.find((level) => level.id === reportBreakdown.id)
+    : null;
+  const reportBreakdownChurch = reportBreakdown.type === 'localidad'
+    ? reportChurches.find((church) => church.id === reportBreakdown.id)
+    : null;
+  const reportBreakdownRows = reportCycleEnrollments
+    .filter((enrollment) => {
+      if (reportBreakdown.type === 'nivel') return enrollment.nivel_id === reportBreakdown.id;
+      if (reportBreakdown.type === 'localidad') {
+        const person = reportParticipants.find((item) => item.id === enrollment.participante_id);
+        return person?.iglesia_id === reportBreakdown.id;
+      }
+      return false;
+    })
+    .map((enrollment) => {
+      const person = reportParticipants.find((item) => item.id === enrollment.participante_id);
+      return person ? { ...person, enrollment } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const churchA = reportChurches.find((item) => item.id === a.iglesia_id)?.nombre || '';
+      const churchB = reportChurches.find((item) => item.id === b.iglesia_id)?.nombre || '';
+      return (reportBreakdown.type === 'nivel' ? churchA.localeCompare(churchB, 'es') : 0)
+        || (a.nombre_completo || '').localeCompare(b.nombre_completo || '', 'es');
+    });
+  const reportBreakdownGroups = reportBreakdown.type === 'nivel'
+    ? [...new Set(reportBreakdownRows.map((person) => person.iglesia_id || 'sin-localidad'))].map((churchId) => ({
+        id: churchId,
+        nombre: reportChurches.find((item) => item.id === churchId)?.nombre || 'Sin localidad',
+        people: reportBreakdownRows.filter((person) => (person.iglesia_id || 'sin-localidad') === churchId),
+      }))
+    : [];
+
   const reportTypeSummary = ['joven', 'servidor', 'entrenante', 'mensajero', 'cocina'].map((type) => ({
     tipo: type.charAt(0).toUpperCase() + type.slice(1),
     cantidad: reportActiveParticipants.filter((person) => person.tipo_participante === type).length,
@@ -1629,7 +1664,7 @@ export default function App() {
                 <button className="text-button" type="button" onClick={() => { setReportFilterChurch('todos'); setReportFilterLevel('todos'); setReportFilterType('todos'); setReportFilterStatus('todos'); }}>Limpiar filtros</button>
               </div>
               {reportFilteredParticipants.length === 0 ? <p className="empty-state">No hay inscritos que coincidan con estos filtros.</p> : (
-                <div className="finance-records">
+                <div className="finance-records report-filtered-list-scroll">
                   {reportFilteredParticipants.map((person) => {
                     const enrollment = reportEnrollmentByParticipant.get(person.id);
                     return <article className="finance-record-row" key={person.id}>
@@ -1658,12 +1693,58 @@ export default function App() {
                   <article className="finance-summary-card"><span>Localidades participantes</span><strong>{reportLocalitySummary.length}</strong></article>
                   <article className="finance-summary-card"><span>Niveles con inscritos</span><strong>{reportLevelSummary.length}</strong></article>
                 </div>
-                <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES POR LOCALIDAD</p>
-                  {reportLocalitySummary.length === 0 ? <p className="empty-state">No hay participantes o inscripciones para mostrar.</p> : reportLocalitySummary.map((item) => <article className="finance-record-row" key={item.localidad}><div><strong>{item.localidad}</strong><span>{item.participantes} participantes activos · {item.inscritos} inscritos en {reportCycle?.anio}</span></div><strong>{item.inscritos} inscritos</strong></article>)}
+                <section className="profile-card finance-records">
+                  <p className="eyebrow">PARTICIPANTES POR LOCALIDAD</p>
+                  <p className="field-hint">Selecciona una localidad para ver sus integrantes inscritos.</p>
+                  <div className="report-summary-scroll">
+                    {reportLocalitySummary.length === 0 ? <p className="empty-state">No hay participantes o inscripciones para mostrar.</p> : reportLocalitySummary.map((item) => {
+                      const church = reportChurches.find((entry) => entry.nombre === item.localidad);
+                      const selected = reportBreakdown.type === 'localidad' && reportBreakdown.id === church?.id;
+                      return <button className={`report-summary-row ${selected ? 'selected' : ''}`} type="button" key={item.localidad} onClick={() => setReportBreakdown(selected ? { type: '', id: '' } : { type: 'localidad', id: church?.id || '' })}>
+                        <span><strong>{item.localidad}</strong><small>{item.participantes} participantes activos · {item.inscritos} inscritos en {reportCycle?.anio}</small></span><strong>{item.inscritos} inscritos</strong>
+                      </button>;
+                    })}
+                  </div>
                 </section>
-                <section className="profile-card finance-records"><p className="eyebrow">INSCRIPCIONES POR NIVEL</p>
-                  {reportLevelSummary.length === 0 ? <p className="empty-state">No hay niveles con inscripciones en este ciclo.</p> : reportLevelSummary.map((item) => <article className="finance-record-row" key={item.nivel}><strong>{item.nivel}</strong><strong>{item.cantidad}</strong></article>)}
+                <section className="profile-card finance-records">
+                  <p className="eyebrow">INSCRIPCIONES POR NIVEL</p>
+                  <p className="field-hint">Selecciona un nivel para consultar sus integrantes, agrupados por localidad.</p>
+                  <div className="report-summary-scroll">
+                    {reportLevelSummary.length === 0 ? <p className="empty-state">No hay niveles con inscripciones en este ciclo.</p> : reportLevelSummary.map((item) => {
+                      const level = reportLevels.find((entry) => entry.nombre === item.nivel);
+                      const selected = reportBreakdown.type === 'nivel' && reportBreakdown.id === level?.id;
+                      return <button className={`report-summary-row ${selected ? 'selected' : ''}`} type="button" key={item.nivel} onClick={() => setReportBreakdown(selected ? { type: '', id: '' } : { type: 'nivel', id: level?.id || '' })}>
+                        <span><strong>{item.nivel}</strong><small>Participantes inscritos</small></span><strong>{item.cantidad}</strong>
+                      </button>;
+                    })}
+                  </div>
                 </section>
+                {reportBreakdown.type && (
+                  <section className="profile-card finance-records report-breakdown-card">
+                    <div className="report-breakdown-heading">
+                      <div><p className="eyebrow">INTEGRANTES SELECCIONADOS</p><h3>{reportBreakdown.type === 'localidad' ? reportBreakdownChurch?.nombre : reportBreakdownLevel?.nombre}</h3><p className="field-hint">{reportBreakdownRows.length} inscritos · Ciclo {reportCycle?.anio}</p></div>
+                      <button className="text-button" type="button" onClick={() => setReportBreakdown({ type: '', id: '' })}>Cerrar</button>
+                    </div>
+                    {reportBreakdownRows.length === 0 ? <p className="empty-state">No hay integrantes inscritos en esta selección.</p> : (
+                      <div className="report-table-scroll" tabIndex="0" aria-label="Listado desplazable de integrantes">
+                        {reportBreakdown.type === 'nivel' ? reportBreakdownGroups.map((group) => (
+                          <div className="report-breakdown-group" key={group.id}>
+                            <h4>{group.nombre} <span>{group.people.length}</span></h4>
+                            <div className="report-table-inner">
+                              <table className="report-data-table"><thead><tr><th>Nombre completo</th><th>Localidad</th><th>Asiste como</th><th>Estado</th></tr></thead><tbody>
+                                {group.people.map((person) => <tr key={person.id}><td>{person.nombre_completo}</td><td>{group.nombre}</td><td>{person.tipo_participante || '—'}</td><td>{person.enrollment.estado?.replaceAll('_', ' ') || '—'}</td></tr>)}
+                              </tbody></table>
+                            </div>
+                          </div>
+                        )) : (
+                          <table className="report-data-table"><thead><tr><th>Nombre completo</th><th>Nivel</th><th>Asiste como</th><th>Estado</th></tr></thead><tbody>
+                            {reportBreakdownRows.map((person) => <tr key={person.id}><td>{person.nombre_completo}</td><td>{reportLevels.find((level) => level.id === person.enrollment.nivel_id)?.nombre || 'Sin nivel'}</td><td>{person.tipo_participante || '—'}</td><td>{person.enrollment.estado?.replaceAll('_', ' ') || '—'}</td></tr>)}
+                          </tbody></table>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                )}
                 <div className="finance-summary-grid">
                   <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES POR TIPO</p>
                     {reportTypeSummary.length === 0 ? <p className="empty-state">No hay datos para mostrar.</p> : reportTypeSummary.map((item) => <article className="finance-record-row" key={item.tipo}><strong>{item.tipo}</strong><strong>{item.cantidad}</strong></article>)}
