@@ -368,3 +368,32 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .app-main-content .intro { font-size: 13px; }
   .sidebar-link { font-size: 11px; }
 }
+
+
+@media print {
+  body * { visibility: hidden !important; }
+  .report-print-area, .report-print-area * { visibility: visible !important; }
+  .report-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  .report-print-area .participant-fields,
+  .report-print-area .text-button,
+  .report-print-trigger { display: none !important; }
+  .report-print-area .finance-record-row { break-inside: avoid; }
+  .report-print-area::before {
+    content: "Escuela de la Verdad · Listado de inscritos";
+    display: block;
+    margin-bottom: 16px;
+    color: #29483d;
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
