@@ -38,6 +38,101 @@ function calculateAge(dateString) {
   return age >= 0 ? age : null;
 }
 
+
+function VisitorDemo() {
+  const [section, setSection] = useState('Inicio');
+  const nav = [
+    ['Inicio', '⌂'], ['Iglesias', '01'], ['Participantes', '02'],
+    ['Inscripciones', '03'], ['Finanzas', '04'], ['Reportes', '05'],
+  ];
+  const demoPeople = [
+    { name: 'María Fernanda López', locality: 'San Pedro Sula', type: 'Joven', level: 'Nivel 2' },
+    { name: 'Daniel Alejandro Reyes', locality: 'La Ceiba', type: 'Joven', level: 'Nivel 1' },
+    { name: 'Gabriela Sofía Martínez', locality: 'Choluteca', type: 'Entrenante', level: 'Nivel 3' },
+    { name: 'José Miguel Castillo', locality: 'Tegucigalpa', type: 'Servidor', level: 'Nivel 4' },
+  ];
+  const levels = ['La Salvación', 'El Dios Triuno', 'Los dos Espíritus', 'La Vida', 'La Iglesia', 'La Biblia'];
+  return (
+    <main className="visitor-shell">
+      <header className="visitor-topbar">
+        <div className="visitor-brand">
+          <img src="/logo-escuela-verdad.png" alt="Escuela de la Verdad" />
+          <div><strong>Escuela de la Verdad</strong><span>HONDURAS · DIOS · EDUCACIÓN · CARÁCTER</span></div>
+        </div>
+        <span className="visitor-tag">VISTA DE VISITANTE · SOLO DEMOSTRACIÓN</span>
+      </header>
+      <div className="visitor-layout">
+        <aside className="visitor-nav">
+          <p className="eyebrow">MENÚ PRINCIPAL</p>
+          {nav.map(([label, number]) => (
+            <button key={label} className={section === label ? 'visitor-nav-active' : ''} onClick={() => setSection(label)}>
+              <span>{number}</span>{label}
+            </button>
+          ))}
+          <div className="visitor-note">Esta vista utiliza ejemplos ficticios. No permite modificar información.</div>
+        </aside>
+        <section className="visitor-content">
+          {section === 'Inicio' ? <>
+            <p className="eyebrow">SISTEMA DE GESTIÓN · HONDURAS</p>
+            <h1>Escuela de la Verdad</h1>
+            <p className="visitor-lead">Una herramienta para organizar las inscripciones, participantes y finanzas de cada ciclo de la Escuela de la Verdad.</p>
+            <div className="visitor-stats">
+              <article><span>Localidades</span><strong>12</strong><small>Ejemplo de organización</small></article>
+              <article><span>Participantes</span><strong>130</strong><small>Registros históricos de 2025</small></article>
+              <article><span>Niveles</span><strong>6</strong><small>Libros de estudio</small></article>
+              <article><span>Ciclo activo</span><strong>2026</strong><small>En preparación</small></article>
+            </div>
+            <h2>Conoce los módulos</h2>
+            <div className="visitor-module-grid">
+              {nav.slice(1).map(([label, number, description]) => (
+                <button key={label} onClick={() => setSection(label)}><span>{number}</span><strong>{label}</strong><small>{({
+                  Iglesias: 'Consulta y organización por localidad.',
+                  Participantes: 'Fichas y datos generales.',
+                  Inscripciones: 'Ciclos, niveles y participación.',
+                  Finanzas: 'Cuotas, pagos, ofrendas, ingresos y gastos.',
+                  Reportes: 'Resúmenes para apoyar la coordinación.',
+                })[label]}</small></button>
+              ))}
+            </div>
+          </> : <>
+            <button className="visitor-back" onClick={() => setSection('Inicio')}>← Volver al inicio</button>
+            <p className="eyebrow">VISTA DE DEMOSTRACIÓN</p>
+            <h1>{section}</h1>
+            {section === 'Iglesias' && <>
+              <p className="visitor-lead">Las localidades participantes se organizan desde un solo apartado.</p>
+              <div className="visitor-table"><div className="visitor-table-head"><span>Localidad</span><span>Participantes de ejemplo</span></div>
+                {['San Pedro Sula', 'La Ceiba', 'San Nicolás', 'Choluteca', 'La Lima', 'Tegucigalpa'].map((x, i) => <div className="visitor-table-row" key={x}><span>{x}</span><span>{[36,15,14,13,12,10][i]}</span></div>)}
+              </div>
+            </>}
+            {section === 'Participantes' && <>
+              <p className="visitor-lead">Cada persona cuenta con una ficha general y su historial de participación.</p>
+              <div className="visitor-table"><div className="visitor-table-head"><span>Nombre de ejemplo</span><span>Localidad</span><span>Asiste como</span></div>
+                {demoPeople.map(p => <div className="visitor-table-row visitor-people-row" key={p.name}><span>{p.name}</span><span>{p.locality}</span><span>{p.type}</span></div>)}
+              </div><p className="visitor-disclaimer">Nombres y datos ilustrativos, no corresponden a personas registradas.</p>
+            </>}
+            {section === 'Inscripciones' && <>
+              <p className="visitor-lead">Las inscripciones se consultan por ciclo, localidad y nivel.</p>
+              <div className="visitor-highlight"><span>Ciclo de ejemplo</span><strong>2025 · Histórico</strong><small>127 inscripciones registradas en la base histórica.</small></div>
+              <h2>Los seis niveles</h2><div className="visitor-levels">{levels.map((x, i) => <div key={x}><span>Nivel {i+1}</span><strong>{x}</strong></div>)}</div>
+              <p className="visitor-disclaimer">La vista real permite consultar las inscripciones por año.</p>
+            </>}
+            {section === 'Finanzas' && <>
+              <p className="visitor-lead">Un espacio para dar seguimiento a las inscripciones, pagos, ofrendas, ingresos y gastos.</p>
+              <div className="visitor-finance-grid"><article><span>Ingresos de ejemplo</span><strong>L 18,500.00</strong><small>Cuotas y ofrendas</small></article><article><span>Egresos de ejemplo</span><strong>L 6,250.00</strong><small>Gastos registrados</small></article><article><span>Saldo de ejemplo</span><strong>L 12,250.00</strong><small>Resumen ilustrativo</small></article></div>
+              <p className="visitor-disclaimer">Cifras completamente ficticias. No se muestran movimientos reales.</p>
+            </>}
+            {section === 'Reportes' && <>
+              <p className="visitor-lead">Los reportes reúnen información por ciclo para facilitar la revisión y la toma de decisiones.</p>
+              <div className="visitor-report-list"><div><strong>Participantes por localidad</strong><span>Resumen de registros por iglesia</span></div><div><strong>Inscripciones por nivel</strong><span>Distribución por libro de estudio</span></div><div><strong>Resumen financiero</strong><span>Ingresos, egresos y saldos</span></div></div>
+            </>}
+          </>}
+        </section>
+      </div>
+      <footer className="visitor-footer">Escuela de la Verdad · Honduras <span>Acceso de visitante · Solo lectura · Datos de demostración</span></footer>
+    </main>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -151,7 +246,7 @@ export default function App() {
 
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    if (visitorMode) return <VisitorDemo />;\n\n  if (!isSupabaseConfigured) {
       setCheckingSession(false);
       return undefined;
     }
