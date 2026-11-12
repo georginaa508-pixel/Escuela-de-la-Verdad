@@ -130,11 +130,6 @@ function VisitorDemo() {
                 <article><span>Egresos registrados</span><strong>{money(currentFinance?.egresos)}</strong><small>Movimientos clasificados como egreso</small></article>
                 <article><span>Saldo de movimientos</span><strong>{money(currentFinance?.saldo_movimientos)}</strong><small>Ingresos menos egresos</small></article>
               </div>
-              <div className="visitor-finance-grid">
-                <article><span>Cuotas asignadas</span><strong>{money(currentFinance?.cuotas_asignadas)}</strong><small>Importes establecidos</small></article>
-                <article><span>Cuotas pagadas</span><strong>{money(currentFinance?.cuotas_pagadas)}</strong><small>Pagos registrados</small></article>
-                <article><span>Saldo pendiente</span><strong>{money(currentFinance?.saldo_cuotas)}</strong><small>Cuotas menos pagos</small></article>
-              </div>
               <h2 className="visitor-subheading">Resumen por ciclo</h2>
               <div className="visitor-table"><div className="visitor-table-head visitor-finance-cycle-grid"><span>Ciclo</span><span>Ingresos</span><span>Egresos</span><span>Saldo</span></div>
                 {data.finanzas.map(x=><div className="visitor-table-row visitor-finance-cycle-grid" key={x.id}><span>{x.anio}</span><span>{money(x.ingresos)}</span><span>{money(x.egresos)}</span><span>{money(x.saldo_movimientos)}</span></div>)}
