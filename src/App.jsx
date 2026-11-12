@@ -440,7 +440,7 @@ function VisitorDemo() {
                   <small>{group.total_jovenes} jóvenes · {group.total_servidores} servidores</small>
                   {group.historico && <em>Histórico 2025</em>}
                 </article>)}
-                {!data.grupos.length && <div className="visitor-empty">No hay grupos registrados.</div>}
+                {!cycleGroups.length && <div className="visitor-empty">No hay grupos registrados para {selectedYear}.</div>}
               </div>
             </>}
             {section === 'Finanzas' && <>
@@ -461,29 +461,29 @@ function VisitorDemo() {
                 </div>}
             </>}
             {section === 'Reportes' && <>
-              <p className="visitor-lead">Selecciona una localidad o un nivel para consultar sus integrantes. Los listados se pueden desplazar dentro del cuadro.</p>
+              <p className="visitor-lead">Consulta los registros del ciclo {selectedYear} por localidad, nivel y tipo de participación.</p>
               <h2>Participantes por localidad</h2>
               <div className="visitor-table visitor-report-scroll"><div className="visitor-table-head visitor-church-grid"><span>Localidad</span><span>Participantes</span><span>Estado</span></div>
-                {data.iglesias.map(x=><button type="button" className={`visitor-table-row visitor-church-grid visitor-report-select ${reportSelection.type==='localidad'&&reportSelection.value===x.nombre?'visitor-report-selected':''}`} key={x.id} onClick={()=>setReportSelection(reportSelection.type==='localidad'&&reportSelection.value===x.nombre?{type:'',value:''}:{type:'localidad',value:x.nombre})}><span>{x.nombre}</span><span>{x.participantes}</span></button>)}
+                {data.iglesias.map(x=><button type="button" className={`visitor-table-row visitor-church-grid visitor-report-select ${reportSelection.type==='localidad'&&reportSelection.value===x.nombre?'visitor-report-selected':''}`} key={x.id} onClick={()=>setReportSelection(reportSelection.type==='localidad'&&reportSelection.value===x.nombre?{type:'',value:''}:{type:'localidad',value:x.nombre})}><span>{x.nombre}</span><span>{cycleEnrollmentRows.filter(y=>y.iglesia===x.nombre).length}</span></button>)}
               </div>
               <h2 className="visitor-subheading">Inscripciones por nivel</h2><div className="visitor-levels visitor-report-scroll">
-                {levels.map(x=><button type="button" className={`visitor-level-select ${reportSelection.type==='nivel'&&reportSelection.value===x.nivel_numero?'visitor-report-selected':''}`} key={x.nivel_numero} onClick={()=>setReportSelection(reportSelection.type==='nivel'&&reportSelection.value===x.nivel_numero?{type:'',value:''}:{type:'nivel',value:x.nivel_numero})}><span>Nivel {x.nivel_numero}</span><strong>{x.nivel}</strong><small>{data.inscripciones.filter(y=>y.nivel_numero===x.nivel_numero).length} inscripciones</small></button>)}
+                {levels.map(x=><button type="button" className={`visitor-level-select ${reportSelection.type==='nivel'&&reportSelection.value===x.nivel_numero?'visitor-report-selected':''}`} key={x.nivel_numero} onClick={()=>setReportSelection(reportSelection.type==='nivel'&&reportSelection.value===x.nivel_numero?{type:'',value:''}:{type:'nivel',value:x.nivel_numero})}><span>Nivel {x.nivel_numero}</span><strong>{x.nivel}</strong><small>{cycleEnrollmentRows.filter(y=>y.nivel_numero===x.nivel_numero).length} inscripciones</small></button>)}
               </div>
               {reportSelection.type && <div className="visitor-report-detail">
                 <div className="visitor-report-detail-heading"><h2>{reportSelection.type==='localidad'?'Integrantes de '+reportSelection.value:'Integrantes de Nivel '+reportSelection.value}</h2><button type="button" onClick={()=>setReportSelection({type:'',value:''})}>Cerrar</button></div>
                 {(() => {
-                  const selectedRows = data.inscripciones.filter(y => reportSelection.type==='localidad' ? y.iglesia===reportSelection.value : Number(y.nivel_numero)===Number(reportSelection.value));
+                  const selectedRows = cycleEnrollmentRows.filter(y => reportSelection.type==='localidad' ? y.iglesia===reportSelection.value : Number(y.nivel_numero)===Number(reportSelection.value));
                   const grouped = reportSelection.type==='nivel' ? [...new Set(selectedRows.map(y=>y.iglesia||'Sin localidad'))].sort() : [reportSelection.value];
                   return grouped.map(locality=><div key={locality} className="visitor-report-group">
                     {reportSelection.type==='nivel' && <h3>{locality}</h3>}
                     <div className="visitor-table visitor-report-scroll"><div className="visitor-table-head visitor-report-person-grid"><span>Nombre completo</span><span>{reportSelection.type==='nivel'?'Localidad':'Nivel'}</span><span>Asiste como</span><span>Estado</span></div>
-                      {selectedRows.filter(y=>reportSelection.type==='nivel'?(y.iglesia||'Sin localidad')===locality:true).map(y=><div className="visitor-table-row visitor-report-person-grid" key={y.id}><span>{y.nombre_completo}</span><span>{reportSelection.type==='nivel'?(y.iglesia||'—'):(y.nivel?y.nivel_numero+'. '+y.nivel:'Sin nivel')}</span><span>{y.tipo_participante||'—'}</span><span>{y.estado||'—'}</span></div>)}
+                      {selectedRows.filter(y=>reportSelection.type==='nivel'?(y.iglesia||'Sin localidad')===locality:true).map(y=><div className="visitor-table-row visitor-report-person-grid" key={y.id}><span>{y.nombre_completo}</span><span>{reportSelection.type==='nivel'?(y.iglesia||'—'):(y.nivel?y.nivel_numero+'. '+y.nivel:'Sin nivel')}</span><span>{y.tipo_inscripcion||'—'}</span><span>{y.estado||'—'}</span></div>)}
                     </div>
                   </div>);
                 })()}
               </div>}
               <h2 className="visitor-subheading">Participantes por tipo</h2><div className="visitor-report-list">
-                {['joven','servidor','entrenante','mensajero','cocina'].map(type=><div key={type}><strong>{type.charAt(0).toUpperCase()+type.slice(1)}</strong><span>{data.participantes.filter(x=>x.tipo_participante===type).length} registros</span></div>)}
+                {['joven','servidor','entrenante','mensajero','cocina'].map(type=><div key={type}><strong>{type.charAt(0).toUpperCase()+type.slice(1)}</strong><span>{cycleEnrollmentRows.filter(x=>x.tipo_inscripcion===type).length} registros</span></div>)}
               </div>
             </>}
           </>}
