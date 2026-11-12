@@ -478,7 +478,7 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
 .visitor-error p { margin-bottom: 0; }
 .visitor-search { width: 100%; max-width: 460px; margin: 14px 0 2px; padding: 11px 13px; border: 1px solid #dce4dc; border-radius: 8px; background: #fff; color: #203b35; font: inherit; font-size: 13px; }
 .visitor-scroll-table { max-height: 590px; overflow: auto; }
-.visitor-church-grid { grid-template-columns: minmax(0,1.5fr) minmax(90px,.7fr) minmax(80px,.6fr); }
+.visitor-church-grid { grid-template-columns: minmax(0,1.5fr) minmax(90px,.7fr); }
 .visitor-participant-grid { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) minmax(90px,.7fr); }
 .visitor-enrollment-grid { grid-template-columns: 58px minmax(150px,1.4fr) minmax(110px,1fr) minmax(120px,1fr) minmax(90px,.7fr); }
 .visitor-finance-cycle-grid { grid-template-columns: .6fr 1fr 1fr 1fr; }
@@ -491,7 +491,7 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .visitor-content { order: 1; padding: 28px 0 40px; }
   .visitor-enrollment-grid, .visitor-movement-grid { min-width: 690px; }
   .visitor-participant-grid { min-width: 520px; }
-  .visitor-church-grid { min-width: 420px; }
+  .visitor-church-grid { min-width: 300px; }
   .visitor-finance-cycle-grid { min-width: 430px; }
 }
 
