@@ -1915,10 +1915,6 @@ export default function App() {
       setFirstPasswordError('Las contraseñas no coinciden.');
       return;
     }
-    if (firstPassword === getSharedTemporaryPassword()) {
-      setFirstPasswordError('Debes elegir una contraseña diferente de la temporal.');
-      return;
-    }
     setSavingFirstPassword(true);
     const { data, error: changeError } = await supabase.functions.invoke('administrar-usuarios', {
       body: { action: 'change_password', password: firstPassword },
