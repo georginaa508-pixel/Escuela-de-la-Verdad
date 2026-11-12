@@ -921,7 +921,7 @@ export default function App() {
       { data: movements, error: movementsError },
     ] = await Promise.all([
       supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
-      supabase.from('participantes').select('id, nombre_completo, iglesia_id, tipo_participante, sexo, activo'),
+      supabase.from('participantes').select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, sistema_educativo, anio_escolar, semestre, activo, created_at'),
       supabase.from('iglesias').select('id, nombre, activa').order('nombre', { ascending: true }),
       profile?.rol === 'coordinacion_general' ? supabase.from('niveles').select('id, numero, nombre, activo').order('numero', { ascending: true }) : Promise.resolve({ data: [], error: null }),
       supabase.from('inscripciones').select('id, participante_id, ciclo_id, nivel_id, tipo_inscripcion, tipo_participacion, estado'),
@@ -989,16 +989,29 @@ export default function App() {
     const participantRows = reportActiveParticipants.map((person) => {
       const enrollment = reportEnrollmentByParticipant.get(person.id);
       return {
-        Participante: person.nombre_completo,
+        Código: person.codigo || '',
+        'Nombre completo': person.nombre_completo || '',
         Localidad: reportChurches.find((church) => church.id === person.iglesia_id)?.nombre || 'Sin localidad',
         'Asiste como': person.tipo_participante || '',
+        'Fecha de nacimiento': person.fecha_nacimiento || '',
+        Edad: calculateAge(person.fecha_nacimiento) ?? '',
+        Sexo: person.sexo === 'F' ? 'Femenino' : person.sexo === 'M' ? 'Masculino' : '',
+        Teléfono: person.telefono || '',
+        'Sistema educativo': person.sistema_educativo || '',
+        'Año escolar': person.anio_escolar || '',
+        Semestre: person.semestre || '',
+        'Necesita libro': person.necesita_libro ? 'Sí' : 'No',
+        'Directrices firmadas': person.formulario_directrices_firmado ? 'Sí' : 'No',
+        'Dieta especial / indicación de salud': person.dieta_especial || '',
+        'Estado del registro': person.activo === false ? 'Inactivo' : 'Activo',
         Inscrito: enrollment ? 'Sí' : 'No',
         Nivel: reportLevels.find((level) => level.id === enrollment?.nivel_id)?.nombre || '',
-        Estado: enrollment?.estado || '',
+        'Estado de inscripción': enrollment?.estado || '',
+        'Fecha de registro': person.created_at ? new Date(person.created_at).toLocaleDateString('es-HN') : '',
       };
     });
     if (profile?.rol === 'coordinacion_general') {
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Participantes');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Ficha participantes');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLocalitySummary), 'Por localidad');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLevelSummary), 'Por nivel');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportTypeSummary), 'Por tipo');
