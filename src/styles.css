@@ -577,3 +577,25 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
 }
+
+
+/* Reportes interactivos en modo visitante */
+.visitor-report-scroll { max-height: 360px; overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.visitor-report-scroll .visitor-table-head, .visitor-report-scroll .visitor-table-row { min-width: 540px; }
+.visitor-report-select, .visitor-level-select { width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.visitor-report-select { background: #fff; border-top: 0; border-left: 0; border-right: 0; }
+.visitor-report-select:hover, .visitor-level-select:hover { background: #f5faf6; }
+.visitor-report-selected { background: #eaf3ed !important; outline: 1px solid #9bb8a4; }
+.visitor-level-select { display: block; padding: 15px; border: 1px solid #e0e6de; border-radius: 9px; background: #fff; }
+.visitor-level-select span, .visitor-level-select strong, .visitor-level-select small { display: block; }
+.visitor-level-select span { color: #87958b; font-size: 10px; }
+.visitor-level-select strong { margin-top: 6px; color: #315e50; font-size: 13px; }
+.visitor-level-select small { margin-top: 6px; color: #87958b; font-size: 10px; }
+.visitor-report-detail { margin-top: 28px; }
+.visitor-report-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.visitor-report-detail-heading h2 { margin: 0; }
+.visitor-report-detail-heading button { border: 1px solid #dce4dc; border-radius: 7px; padding: 7px 11px; background: #fff; color: #477363; cursor: pointer; }
+.visitor-report-group { margin-top: 18px; }
+.visitor-report-group h3 { margin: 0 0 8px; color: #315e50; font-size: 13px; }
+.visitor-report-person-grid { grid-template-columns: minmax(170px,1.4fr) minmax(110px,1fr) minmax(100px,.8fr) minmax(90px,.7fr); }
+.visitor-report-person-grid .visitor-table-head, .visitor-report-person-grid .visitor-table-row { min-width: 620px; }
