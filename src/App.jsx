@@ -1462,8 +1462,8 @@ export default function App() {
           <button className="back-button" type="button" onClick={() => setActiveModule('')}>← Volver a módulos</button>
           <div className="section-heading"><div><p className="eyebrow">CONSULTAS Y RESÚMENES</p><h2>Reportes</h2><p className="work-intro">Consulta la participación, distribución por localidad y nivel, y el resumen financiero del ciclo.</p></div><span className="module-count">{reportCycle?.anio || 'Ciclo'}</span></div>
           {profile?.rol === 'coordinacion_general' && reportCycleId && (
-            <section className="profile-card finance-records">
-              <p className="eyebrow">GENERAR LISTADO DE INSCRITOS</p>
+            <section className="profile-card finance-records report-print-area">
+              <p className="eyebrow">LISTADO DE INSCRITOS</p>
               <p className="work-intro">Selecciona uno o varios criterios. El listado y la hoja «Listado filtrado» del Excel mostrarán únicamente las coincidencias.</p>
               <div className="participant-fields">
                 <div className="participant-field"><label htmlFor="report-filter-church">Localidad</label>
@@ -1513,6 +1513,7 @@ export default function App() {
             <label htmlFor="report-cycle">Ciclo</label>
             <select id="report-cycle" value={reportCycleId} onChange={(event) => setReportCycleId(event.target.value)}><option value="">Seleccionar ciclo</option>{reportCycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.anio} · {cycle.estado}</option>)}</select>
             <button className="text-button" type="button" onClick={loadReportData} disabled={reportLoading}>Actualizar datos</button>
+            <button className="text-button report-print-trigger" type="button" onClick={() => window.print()} disabled={reportLoading || !reportCycleId || reportFilteredParticipants.length === 0}>Imprimir listado</button>
             <button className="primary-button" type="button" onClick={exportReports} disabled={reportLoading || !reportCycleId}>Descargar Excel</button>
           </div>
           {reportError && <p className="auth-error" role="alert">{reportError}</p>}
