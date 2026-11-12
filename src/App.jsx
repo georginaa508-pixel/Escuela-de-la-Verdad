@@ -500,6 +500,20 @@ function VisitorDemo() {
 }
 
 
+
+function getSharedTemporaryPassword() {
+  const key = 'ev_shared_temporary_password';
+  let value = window.sessionStorage.getItem(key);
+  if (!value) {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes = new Uint8Array(18);
+    window.crypto.getRandomValues(bytes);
+    value = Array.from(bytes, byte => alphabet[byte % alphabet.length]).join('');
+    window.sessionStorage.setItem(key, value);
+  }
+  return value;
+}
+
 const USER_ROLES = [
   { value: 'coordinacion_general', label: 'Coordinación General' },
   { value: 'coordinador', label: 'Coordinador' },
@@ -518,7 +532,7 @@ function AdministracionUsuarios({ onBack, currentUserId }) {
   const [notice, setNotice] = useState('');
   const [name, setName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [newPassword] = useState(() => getSharedTemporaryPassword());
   const [newRole, setNewRole] = useState('coordinador');
   const [newChurch, setNewChurch] = useState('');
 
@@ -569,8 +583,8 @@ function AdministracionUsuarios({ onBack, currentUserId }) {
         rol: newRole,
         iglesia_id: newChurch || null,
       });
-      setName(''); setNewEmail(''); setNewPassword(''); setNewRole('coordinador'); setNewChurch('');
-      setNotice('La cuenta se creó correctamente. Comparte la contraseña inicial de forma privada.');
+      setName(''); setNewEmail(''); setNewRole('coordinador'); setNewChurch('');
+      setNotice('La cuenta se creó. Comparte la contraseña temporal de forma privada; el usuario deberá cambiarla al ingresar por primera vez.');
       await loadUsers();
     } catch (err) {
       setError(err.message || 'No se pudo crear la cuenta.');
@@ -624,7 +638,7 @@ function AdministracionUsuarios({ onBack, currentUserId }) {
           <label>Correo electrónico<input type="email" value={newEmail} onChange={e=>setNewEmail(e.target.value)} autoComplete="off" required /></label>
           <label>Perfil<select value={newRole} onChange={e=>setNewRole(e.target.value)}>{USER_ROLES.map(role=><option key={role.value} value={role.value}>{role.label}</option>)}</select></label>
           <label>Iglesia (opcional)<select value={newChurch} onChange={e=>setNewChurch(e.target.value)}><option value="">Sin iglesia asignada</option>{churches.map(church=><option key={church.id} value={church.id}>{church.nombre}</option>)}</select></label>
-          <label className="user-password-field">Contraseña inicial<input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} minLength={10} autoComplete="new-password" required /><small>Mínimo 10 caracteres, con al menos una letra y un número. Compártela en privado.</small></label>
+          <label className="user-password-field">Contraseña temporal compartida<input type="text" value={newPassword} readOnly autoComplete="off" /><small>Se genera automáticamente y se reutiliza para las cuentas creadas en esta sesión. Cada usuario deberá cambiarla al entrar por primera vez.</small><button className="text-button" type="button" onClick={()=>{navigator.clipboard?.writeText(newPassword);setNotice('Contraseña temporal copiada. Compártela de forma privada.');}}>Copiar contraseña</button></label>
         </div>
         <div className="participant-submit"><button className="primary-button" type="submit" disabled={saving || !name.trim() || !newEmail.trim() || newPassword.length < 10}>{saving ? 'Guardando…' : 'Crear cuenta'}</button></div>
       </form>
@@ -660,6 +674,11 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [firstPassword, setFirstPassword] = useState('');
+  const [confirmFirstPassword, setConfirmFirstPassword] = useState('');
+  const [savingFirstPassword, setSavingFirstPassword] = useState(false);
+  const [firstPasswordError, setFirstPasswordError] = useState('');
+
   const [activeModule, setActiveModule] = useState('');
   const [globalCycles, setGlobalCycles] = useState([]);
   const [globalCycleId, setGlobalCycleId] = useState('');
@@ -1885,6 +1904,40 @@ export default function App() {
     setSubmitting(false);
   }
 
+  async function handleFirstPasswordChange(event) {
+    event.preventDefault();
+    setFirstPasswordError('');
+    if (firstPassword.length < 10 || !/[A-Za-z]/.test(firstPassword) || !/[0-9]/.test(firstPassword)) {
+      setFirstPasswordError('La nueva contraseña debe tener al menos 10 caracteres, una letra y un número.');
+      return;
+    }
+    if (firstPassword !== confirmFirstPassword) {
+      setFirstPasswordError('Las contraseñas no coinciden.');
+      return;
+    }
+    if (firstPassword === getSharedTemporaryPassword()) {
+      setFirstPasswordError('Debes elegir una contraseña diferente de la temporal.');
+      return;
+    }
+    setSavingFirstPassword(true);
+    const { data, error: changeError } = await supabase.functions.invoke('administrar-usuarios', {
+      body: { action: 'change_password', password: firstPassword },
+    });
+    if (changeError || data?.error) {
+      setFirstPasswordError(data?.error || 'No se pudo cambiar la contraseña. Inténtalo de nuevo.');
+    } else {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshed?.session) {
+        setFirstPasswordError('La contraseña se actualizó, pero no pudimos renovar la sesión. Cierra sesión e ingresa con tu nueva contraseña.');
+      } else {
+        setSession(refreshed.session);
+        setFirstPassword('');
+        setConfirmFirstPassword('');
+      }
+    }
+    setSavingFirstPassword(false);
+  }
+
   async function handleLogout() {
     setError('');
     const { error: logoutError } = await supabase.auth.signOut();
@@ -1909,6 +1962,32 @@ export default function App() {
 
   if (checkingSession) {
     return <main className="auth-shell"><p className="loading-text">Comprobando sesión…</p></main>;
+  }
+
+  if (session?.user?.app_metadata?.must_change_password === true) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <img className="auth-logo" src="/logo-escuela-verdad.png" alt="Logo oficial de Escuela de la Verdad" />
+          <p className="eyebrow">PRIMER INGRESO</p>
+          <h1>Escuela de la Verdad</h1>
+          <div className="auth-divider" />
+          <h2>Crea tu contraseña personal</h2>
+          <p className="auth-description">Esta es una medida de seguridad. Antes de entrar al sistema, reemplaza la contraseña temporal por una contraseña que solo tú conozcas.</p>
+          <form className="login-form" onSubmit={handleFirstPasswordChange}>
+            <label htmlFor="first-password">Nueva contraseña</label>
+            <input id="first-password" type="password" autoComplete="new-password" value={firstPassword} onChange={event=>setFirstPassword(event.target.value)} minLength={10} required />
+            <label htmlFor="confirm-first-password">Confirmar nueva contraseña</label>
+            <input id="confirm-first-password" type="password" autoComplete="new-password" value={confirmFirstPassword} onChange={event=>setConfirmFirstPassword(event.target.value)} minLength={10} required />
+            <small className="field-hint">Mínimo 10 caracteres, con al menos una letra y un número.</small>
+            {firstPasswordError && <p className="auth-error" role="alert">{firstPasswordError}</p>}
+            <button className="login-button" type="submit" disabled={savingFirstPassword || !firstPassword || !confirmFirstPassword}>{savingFirstPassword ? 'Actualizando…' : 'Guardar mi contraseña'}</button>
+          </form>
+          <button className="text-button" type="button" onClick={handleLogout}>Cerrar sesión</button>
+        </section>
+        <footer className="auth-footer">Escuela de la Verdad · Honduras</footer>
+      </main>
+    );
   }
 
   if (!session) {
