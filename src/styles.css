@@ -494,3 +494,86 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .visitor-church-grid { min-width: 420px; }
   .visitor-finance-cycle-grid { min-width: 430px; }
 }
+
+
+/* Reportes: listas con desplazamiento propio y selecciones interactivas */
+.report-summary-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+.report-summary-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.report-summary-row:hover,
+.report-summary-row.selected {
+  background: var(--surface-soft, #f3f6f7);
+}
+.report-summary-row.selected {
+  outline: 1px solid var(--border-strong, #b8c5ca);
+}
+.report-summary-row span { display: grid; gap: 4px; min-width: 0; }
+.report-summary-row small { color: var(--muted, #687780); font-size: 12px; }
+.report-summary-row > strong { white-space: nowrap; }
+.report-breakdown-card { min-width: 0; }
+.report-breakdown-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.report-breakdown-heading h3 { margin: 4px 0; }
+.report-table-scroll {
+  max-width: 100%;
+  max-height: 460px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+}
+.report-table-inner { max-width:100%; overflow-x:auto; }
+.report-data-table {
+  width:100%;
+  min-width:640px;
+  border-collapse:collapse;
+  font-size:13px;
+}
+.report-data-table th,
+.report-data-table td {
+  padding:11px 13px;
+  border-bottom:1px solid var(--border, #e5e7eb);
+  text-align:left;
+  white-space:nowrap;
+}
+.report-data-table th {
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:var(--surface-soft, #f3f6f7);
+  font-weight:700;
+}
+.report-data-table tbody tr:last-child td { border-bottom:0; }
+.report-breakdown-group + .report-breakdown-group { border-top:1px solid var(--border, #e5e7eb); }
+.report-breakdown-group h4 {
+  display:flex;
+  justify-content:space-between;
+  padding:12px 14px 8px;
+  margin:0;
+  font-size:13px;
+}
+.report-breakdown-group h4 span { color:var(--muted, #687780); }
+.report-filtered-list-scroll {
+  max-height:420px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
