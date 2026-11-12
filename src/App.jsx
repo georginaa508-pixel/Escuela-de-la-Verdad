@@ -971,6 +971,15 @@ export default function App() {
     { sexo: 'Masculino', cantidad: reportActiveParticipants.filter((person) => person.sexo === 'M').length },
     { sexo: 'Sin dato', cantidad: reportActiveParticipants.filter((person) => !['F', 'M'].includes(person.sexo)).length },
   ].filter((item) => item.cantidad > 0);
+  const reportSpecialDietParticipants = reportActiveParticipants
+    .filter((person) => reportEnrollmentByParticipant.has(person.id) && person.dieta_especial?.trim())
+    .map((person) => ({
+      nombre: person.nombre_completo,
+      localidad: reportChurches.find((church) => church.id === person.iglesia_id)?.nombre || 'Sin localidad',
+      tipo: person.tipo_participante || '',
+      indicacion: person.dieta_especial.trim(),
+    }))
+    .sort((a, b) => a.localidad.localeCompare(b.localidad, 'es') || a.nombre.localeCompare(b.nombre, 'es'));
   const reportEnrollmentStatusSummary = [...new Set(reportCycleEnrollments.map((item) => item.estado).filter(Boolean))].map((status) => ({
     estado: status.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase()),
     cantidad: reportCycleEnrollments.filter((item) => item.estado === status).length,
@@ -1017,6 +1026,7 @@ export default function App() {
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportTypeSummary), 'Por tipo');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportSexSummary), 'Por sexo');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportEnrollmentStatusSummary), 'Estado inscripciones');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportSpecialDietParticipants.map((person) => ({ Participante: person.nombre, Localidad: person.localidad, 'Asiste como': person.tipo, 'Dieta especial': person.indicacion }))), 'Dieta especial');
     }
     const financeRows = [
       { Concepto: 'Cuotas asignadas', Monto: reportTotalFees },
@@ -1451,6 +1461,11 @@ export default function App() {
                     {reportSexSummary.length === 0 ? <p className="empty-state">No hay datos para mostrar.</p> : reportSexSummary.map((item) => <article className="finance-record-row" key={item.sexo}><strong>{item.sexo}</strong><strong>{item.cantidad}</strong></article>)}
                   </section>
                 </div>
+                <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES CON DIETA ESPECIAL · {reportSpecialDietParticipants.length}</p>
+                  {reportSpecialDietParticipants.length === 0 ? <p className="empty-state">No hay participantes inscritos en este ciclo con dieta especial registrada.</p> : reportSpecialDietParticipants.map((person, index) => <article className="finance-record-row" key={person.nombre + person.localidad + index}>
+                    <div><strong>{person.nombre}</strong><p className="work-intro">{person.localidad} · {person.tipo}</p><span>{person.indicacion}</span></div>
+                  </article>)}
+                </section>
                 <section className="profile-card finance-records"><p className="eyebrow">ESTADO DE INSCRIPCIONES · {reportCycle?.anio}</p>
                   {reportEnrollmentStatusSummary.length === 0 ? <p className="empty-state">No hay inscripciones para mostrar.</p> : reportEnrollmentStatusSummary.map((item) => <article className="finance-record-row" key={item.estado}><strong>{item.estado}</strong><strong>{item.cantidad}</strong></article>)}
                 </section>
