@@ -467,3 +467,30 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
   .visitor-people-row span:last-child { display: none; }
   .visitor-footer { flex-direction: column; }
 }
+
+
+/* Vista de visitante: menú a la derecha y datos reales en solo lectura */
+.visitor-layout { grid-template-columns: minmax(0,1fr) 220px; gap: 34px; }
+.visitor-nav { grid-column: 2; grid-row: 1; border-right: 0; border-left: 1px solid #dfe5dd; padding: 35px 0 35px 18px; }
+.visitor-content { grid-column: 1; grid-row: 1; }
+.visitor-loading, .visitor-error, .visitor-empty { padding: 18px; color: #718178; font-size: 13px; }
+.visitor-error { border: 1px solid #ead6d2; border-radius: 10px; background: #fff8f6; color: #8a4b40; }
+.visitor-error p { margin-bottom: 0; }
+.visitor-search { width: 100%; max-width: 460px; margin: 14px 0 2px; padding: 11px 13px; border: 1px solid #dce4dc; border-radius: 8px; background: #fff; color: #203b35; font: inherit; font-size: 13px; }
+.visitor-scroll-table { max-height: 590px; overflow: auto; }
+.visitor-church-grid { grid-template-columns: minmax(0,1.5fr) minmax(90px,.7fr) minmax(80px,.6fr); }
+.visitor-participant-grid { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) minmax(90px,.7fr); }
+.visitor-enrollment-grid { grid-template-columns: 58px minmax(150px,1.4fr) minmax(110px,1fr) minmax(120px,1fr) minmax(90px,.7fr); }
+.visitor-finance-cycle-grid { grid-template-columns: .6fr 1fr 1fr 1fr; }
+.visitor-movement-grid { grid-template-columns: 100px 55px 90px minmax(150px,1.4fr) 130px; }
+.visitor-subheading { margin-top: 30px !important; }
+.visitor-levels small { display: block; margin-top: 6px; color: #87958b; font-size: 10px; }
+@media (max-width: 760px) {
+  .visitor-layout { display: flex; flex-direction: column; }
+  .visitor-nav { order: 0; border-left: 0; border-bottom: 1px solid #dfe5dd; padding: 18px 0; }
+  .visitor-content { order: 1; padding: 28px 0 40px; }
+  .visitor-enrollment-grid, .visitor-movement-grid { min-width: 690px; }
+  .visitor-participant-grid { min-width: 520px; }
+  .visitor-church-grid { min-width: 420px; }
+  .visitor-finance-cycle-grid { min-width: 430px; }
+}
