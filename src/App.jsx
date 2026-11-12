@@ -907,8 +907,9 @@ export default function App() {
   async function handleAssignStandardFees() {
     if (!financeCycleId) return;
     const config = financeFeeConfigs.find((item) => item.ciclo_id === financeCycleId);
-    if (!config || Number(config.monto_general) !== 4000) {
-      setFinanceError('La cuota general de este ciclo debe estar configurada en L 4,000.00 antes de asignar las cuotas.');
+    const generalAmount = Number(config?.monto_general);
+    if (!config || !Number.isFinite(generalAmount) || generalAmount <= 0) {
+      setFinanceError('Primero debe configurarse una cuota general válida para este ciclo.');
       return;
     }
     const existingEnrollmentIds = new Set(financeFees.map((fee) => fee.inscripcion_id));
@@ -924,7 +925,7 @@ export default function App() {
     setFinanceAssigningFees(true);
     setFinanceError('');
     const { error: insertError } = await supabase.from('cuotas_inscripcion').insert(
-      pendingAssignments.map((item) => ({ inscripcion_id: item.id, monto_base: 4000, monto_final: 4000 }))
+      pendingAssignments.map((item) => ({ inscripcion_id: item.id, monto_base: generalAmount, monto_final: generalAmount }))
     );
     if (insertError) {
       setFinanceError('No se pudieron asignar todas las cuotas. No se modificaron las cuotas que ya existían; verifica los permisos e inténtalo de nuevo.');
@@ -1138,9 +1139,9 @@ export default function App() {
               {financeUnassignedStandardCount > 0 && (
                 <section className="profile-card finance-records">
                   <p className="eyebrow">ASIGNACIÓN DE CUOTAS</p>
-                  <p>Hay {financeUnassignedStandardCount} inscripciones de Jóvenes y Servidores sin cuota asignada. Se aplicará L 4,000.00 a cada una. Los Entrenantes y los ajustes individuales se gestionarán por separado.</p>
-                  <button className="primary-button" type="button" onClick={handleAssignStandardFees} disabled={financeAssigningFees || !financeFeeConfigs.some((item) => item.ciclo_id === financeCycleId && Number(item.monto_general) === 4000)}>{financeAssigningFees ? 'Asignando cuotas…' : 'Asignar cuotas de L 4,000'}</button>
-                  {!financeFeeConfigs.some((item) => item.ciclo_id === financeCycleId && Number(item.monto_general) === 4000) && <p className="field-hint">Primero debe configurarse la cuota general de este ciclo en L 4,000.00.</p>}
+                  <p>Hay {financeUnassignedStandardCount} inscripciones de Jóvenes y Servidores sin cuota asignada. Se aplicará la cuota general configurada de L {Number(financeFeeConfigs.find((item) => item.ciclo_id === financeCycleId)?.monto_general || 0).toLocaleString('es-HN', { minimumFractionDigits: 2 })} a cada una. Los Entrenantes y los ajustes individuales se gestionarán por separado.</p>
+                  <button className="primary-button" type="button" onClick={handleAssignStandardFees} disabled={financeAssigningFees || !financeFeeConfigs.some((item) => item.ciclo_id === financeCycleId && Number.isFinite(Number(item.monto_general)) && Number(item.monto_general) > 0)}>{financeAssigningFees ? 'Asignando cuotas…' : 'Asignar cuotas generales'}</button>
+                  {!financeFeeConfigs.some((item) => item.ciclo_id === financeCycleId && Number.isFinite(Number(item.monto_general)) && Number(item.monto_general) > 0) && <p className="field-hint">Primero debe configurarse una cuota general válida para este ciclo.</p>}
                 </section>
               )}
               <div className="finance-summary-grid">
