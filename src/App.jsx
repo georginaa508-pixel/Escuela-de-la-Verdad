@@ -98,7 +98,7 @@ function GruposEstudio({ onBack }) {
 
   async function addGroup() {
     const level = levels.find(x => x.id === newLevelId);
-    if (!level || !cycleId) return;
+    if (!level || !cycleId || selectedCycle?.estado === 'cerrado') return;
     const same = cycleGroups.filter(x => x.nivel_id === level.id && x.sexo === newSex);
     const number = Math.max(0,...same.map(x => Number(x.numero)||0)) + 1;
     setSaving(true);
@@ -158,7 +158,7 @@ function GruposEstudio({ onBack }) {
           </select>
           <button className="text-button" type="button" onClick={loadData} disabled={saving}>Actualizar</button>
         </div>
-        <div className="group-create-panel">
+        {selectedCycle?.estado !== 'cerrado' && <div className="group-create-panel">
           <div><strong>Agregar otro grupo</strong><span>Úsalo cuando un nivel necesite más de un grupo del mismo sexo.</span></div>
           <div className="group-create-controls">
             <select aria-label="Nivel del nuevo grupo" value={newLevelId} onChange={e=>setNewLevelId(e.target.value)}>
@@ -169,7 +169,7 @@ function GruposEstudio({ onBack }) {
             </select>
             <button className="primary-button" type="button" onClick={addGroup} disabled={saving || !cycleId || !newLevelId}>Agregar grupo</button>
           </div>
-        </div>
+        </div>}
         {selectedCycle?.anio === 2026 && <p className="group-guidance">Se prepararon grupos femeninos y masculinos para los seis niveles. La distribución de referencia es de 4 jóvenes y 2 servidores por grupo; no es un límite obligatorio. Los entrenantes cuentan como servidores.</p>}
         <div className="study-group-grid">
           {orderedGroups.map(group=>{
