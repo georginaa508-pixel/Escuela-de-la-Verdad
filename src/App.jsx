@@ -134,6 +134,7 @@ function VisitorDemo() {
 }
 
 export default function App() {
+  const visitorMode = new URLSearchParams(window.location.search).get('modo') === 'visitante';
   const [session, setSession] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [email, setEmail] = useState('');
@@ -246,7 +247,8 @@ export default function App() {
 
 
   useEffect(() => {
-    if (visitorMode) return <VisitorDemo />;\n\n  if (!isSupabaseConfigured) {
+    if (visitorMode) { setCheckingSession(false); return undefined; }
+    if (!isSupabaseConfigured) {
       setCheckingSession(false);
       return undefined;
     }
@@ -271,6 +273,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (visitorMode) return undefined;
     if (!session?.user?.id) {
       setProfile(null);
       setProfileError('');
@@ -1305,6 +1308,8 @@ export default function App() {
     const { error: logoutError } = await supabase.auth.signOut();
     if (logoutError) setError('No se pudo cerrar la sesión. Intenta de nuevo.');
   }
+
+  if (visitorMode) return <VisitorDemo />;
 
   if (!isSupabaseConfigured) {
     return (
