@@ -473,6 +473,7 @@ export default function App() {
   const [reportFees, setReportFees] = useState([]);
   const [reportPayments, setReportPayments] = useState([]);
   const [reportMovements, setReportMovements] = useState([]);
+  const [reportStudyGroups, setReportStudyGroups] = useState([]);
 
 
   useEffect(() => {
@@ -1250,6 +1251,7 @@ export default function App() {
       { data: fees, error: feesError },
       { data: payments, error: paymentsError },
       { data: movements, error: movementsError },
+      { data: studyGroups, error: studyGroupsError },
     ] = await Promise.all([
       supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
       supabase.from('participantes').select('id, codigo, nombre_completo, iglesia_id, tipo_participante, fecha_nacimiento, sexo, telefono, necesita_libro, dieta_especial, formulario_directrices_firmado, sistema_educativo, anio_escolar, semestre, activo, created_at'),
@@ -1259,8 +1261,9 @@ export default function App() {
       supabase.from('cuotas_inscripcion').select('id, inscripcion_id, monto_final'),
       supabase.from('pagos_cuotas').select('id, cuota_inscripcion_id, monto, fecha_pago'),
       supabase.from('movimientos_financieros').select('id, ciclo_id, tipo, concepto, monto, fecha'),
+      profile?.rol === 'coordinacion_general' ? supabase.from('grupos_estudio').select('id,ciclo_id,nivel_numero,nivel_nombre,sexo,nombre,numero,historico,grupo_estudio_integrantes(id,nombre_integrante,tipo_integrante)').order('nivel_numero').order('sexo').order('numero') : Promise.resolve({ data: [], error: null }),
     ]);
-    if (cyclesError || participantsError || churchesError || levelsError || enrollmentsError || feesError || paymentsError || movementsError) {
+    if (cyclesError || participantsError || churchesError || levelsError || enrollmentsError || feesError || paymentsError || movementsError || studyGroupsError) {
       setReportError('No se pudieron cargar todos los datos para los reportes. Verifica los permisos de acceso e inténtalo nuevamente.');
     } else {
       setReportCycles(cycles || []);
@@ -1272,6 +1275,7 @@ export default function App() {
       setReportFees(fees || []);
       setReportPayments(payments || []);
       setReportMovements(movements || []);
+      setReportStudyGroups(studyGroups || []);
     }
     setReportLoading(false);
   }
@@ -1281,6 +1285,7 @@ export default function App() {
   }, [activeModule, profile]);
 
   const reportCycle = reportCycles.find((cycle) => cycle.id === reportCycleId);
+  const reportCycleStudyGroups = reportStudyGroups.filter((group) => group.ciclo_id === reportCycleId).sort((a,b) => a.nivel_numero-b.nivel_numero || a.sexo.localeCompare(b.sexo) || a.numero-b.numero);
   const reportCycleEnrollments = reportEnrollments.filter((item) => item.ciclo_id === reportCycleId);
   const reportEnrollmentByParticipant = new Map(reportCycleEnrollments.map((item) => [item.participante_id, item]));
   const reportActiveParticipants = reportParticipants.filter((item) => item.activo !== false);
@@ -1942,6 +1947,22 @@ export default function App() {
                     )}
                   </section>
                 )}
+                <section className="profile-card finance-records groups-print-area">
+                  <div className="report-breakdown-heading">
+                    <div><p className="eyebrow">GRUPOS DE ESTUDIO · {reportCycle?.anio}</p><p className="field-hint">{reportCycleStudyGroups.length} grupos · {reportCycleStudyGroups.reduce((sum,g)=>sum+(g.grupo_estudio_integrantes||[]).length,0)} integrantes</p></div>
+                    <button className="text-button" type="button" onClick={() => { document.body.classList.add('printing-study-groups'); window.print(); window.setTimeout(() => document.body.classList.remove('printing-study-groups'), 1000); }} disabled={!reportCycleStudyGroups.length}>Imprimir grupos</button>
+                  </div>
+                  {!reportCycleStudyGroups.length ? <p className="empty-state">No hay grupos registrados para este ciclo.</p> : <div className="study-groups-report-list">
+                    {reportCycleStudyGroups.map(group => {
+                      const members = [...(group.grupo_estudio_integrantes||[])].sort((a,b)=>(a.nombre_integrante||'').localeCompare(b.nombre_integrante||'','es'));
+                      return <article className="study-groups-report-item" key={group.id}>
+                        <div><strong>{group.nivel_numero}. {group.nivel_nombre} · {group.nombre}</strong><span>{group.sexo==='F'?'Femenino':'Masculino'}{group.historico?' · Histórico':''}</span></div>
+                        <small>{members.length} integrantes</small>
+                        <ol>{members.map(member=><li key={member.id}>{member.nombre_integrante} <span>({member.tipo_integrante==='entrenante'?'Entrenante · servidor':member.tipo_integrante})</span></li>)}</ol>
+                      </article>;
+                    })}
+                  </div>}
+                </section>
                 <div className="finance-summary-grid">
                   <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES POR TIPO</p>
                     {reportTypeSummary.length === 0 ? <p className="empty-state">No hay datos para mostrar.</p> : reportTypeSummary.map((item) => <article className="finance-record-row" key={item.tipo}><strong>{item.tipo}</strong><strong>{item.cantidad}</strong></article>)}
