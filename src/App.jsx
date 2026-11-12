@@ -921,7 +921,7 @@ export default function App() {
       { data: movements, error: movementsError },
     ] = await Promise.all([
       supabase.from('ciclos_escolares').select('id, anio, estado').order('anio', { ascending: false }),
-      supabase.from('participantes').select('id, nombre_completo, iglesia_id, tipo_participante, activo'),
+      supabase.from('participantes').select('id, nombre_completo, iglesia_id, tipo_participante, sexo, activo'),
       supabase.from('iglesias').select('id, nombre, activa').order('nombre', { ascending: true }),
       profile?.rol === 'coordinacion_general' ? supabase.from('niveles').select('id, numero, nombre, activo').order('numero', { ascending: true }) : Promise.resolve({ data: [], error: null }),
       supabase.from('inscripciones').select('id, participante_id, ciclo_id, nivel_id, tipo_inscripcion, tipo_participacion, estado'),
@@ -962,6 +962,19 @@ export default function App() {
     nivel: level.nombre,
     cantidad: reportCycleEnrollments.filter((item) => item.nivel_id === level.id).length,
   })).filter((item) => item.cantidad > 0);
+  const reportTypeSummary = ['joven', 'servidor', 'entrenante', 'mensajero', 'cocina'].map((type) => ({
+    tipo: type.charAt(0).toUpperCase() + type.slice(1),
+    cantidad: reportActiveParticipants.filter((person) => person.tipo_participante === type).length,
+  })).filter((item) => item.cantidad > 0);
+  const reportSexSummary = [
+    { sexo: 'Femenino', cantidad: reportActiveParticipants.filter((person) => person.sexo === 'F').length },
+    { sexo: 'Masculino', cantidad: reportActiveParticipants.filter((person) => person.sexo === 'M').length },
+    { sexo: 'Sin dato', cantidad: reportActiveParticipants.filter((person) => !['F', 'M'].includes(person.sexo)).length },
+  ].filter((item) => item.cantidad > 0);
+  const reportEnrollmentStatusSummary = [...new Set(reportCycleEnrollments.map((item) => item.estado).filter(Boolean))].map((status) => ({
+    estado: status.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase()),
+    cantidad: reportCycleEnrollments.filter((item) => item.estado === status).length,
+  }));
   const reportCycleFees = reportFees.filter((fee) => reportCycleEnrollments.some((item) => item.id === fee.inscripcion_id));
   const reportCycleFeeIds = new Set(reportCycleFees.map((fee) => fee.id));
   const reportCyclePayments = reportPayments.filter((payment) => reportCycleFeeIds.has(payment.cuota_inscripcion_id));
@@ -988,6 +1001,9 @@ export default function App() {
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(participantRows), 'Participantes');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLocalitySummary), 'Por localidad');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportLevelSummary), 'Por nivel');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportTypeSummary), 'Por tipo');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportSexSummary), 'Por sexo');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(reportEnrollmentStatusSummary), 'Estado inscripciones');
     }
     const financeRows = [
       { Concepto: 'Cuotas asignadas', Monto: reportTotalFees },
@@ -1413,6 +1429,17 @@ export default function App() {
                 </section>
                 <section className="profile-card finance-records"><p className="eyebrow">INSCRIPCIONES POR NIVEL</p>
                   {reportLevelSummary.length === 0 ? <p className="empty-state">No hay niveles con inscripciones en este ciclo.</p> : reportLevelSummary.map((item) => <article className="finance-record-row" key={item.nivel}><strong>{item.nivel}</strong><strong>{item.cantidad}</strong></article>)}
+                </section>
+                <div className="finance-summary-grid">
+                  <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES POR TIPO</p>
+                    {reportTypeSummary.length === 0 ? <p className="empty-state">No hay datos para mostrar.</p> : reportTypeSummary.map((item) => <article className="finance-record-row" key={item.tipo}><strong>{item.tipo}</strong><strong>{item.cantidad}</strong></article>)}
+                  </section>
+                  <section className="profile-card finance-records"><p className="eyebrow">PARTICIPANTES POR SEXO</p>
+                    {reportSexSummary.length === 0 ? <p className="empty-state">No hay datos para mostrar.</p> : reportSexSummary.map((item) => <article className="finance-record-row" key={item.sexo}><strong>{item.sexo}</strong><strong>{item.cantidad}</strong></article>)}
+                  </section>
+                </div>
+                <section className="profile-card finance-records"><p className="eyebrow">ESTADO DE INSCRIPCIONES · {reportCycle?.anio}</p>
+                  {reportEnrollmentStatusSummary.length === 0 ? <p className="empty-state">No hay inscripciones para mostrar.</p> : reportEnrollmentStatusSummary.map((item) => <article className="finance-record-row" key={item.estado}><strong>{item.estado}</strong><strong>{item.cantidad}</strong></article>)}
                 </section>
               </>}
               <section className="profile-card finance-records"><p className="eyebrow">RESUMEN FINANCIERO · {reportCycle?.anio}</p>
