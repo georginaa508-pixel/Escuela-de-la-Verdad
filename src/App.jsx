@@ -104,8 +104,8 @@ function VisitorDemo() {
             <p className="eyebrow">CONSULTA DE REGISTROS REALES</p><h1>{section}</h1>
             {section === 'Iglesias' && <>
               <p className="visitor-lead">Localidades registradas y cantidad de participantes asociados.</p>
-              <div className="visitor-table"><div className="visitor-table-head visitor-church-grid"><span>Localidad</span><span>Participantes</span><span>Estado</span></div>
-                {data.iglesias.map(x=><div className="visitor-table-row visitor-church-grid" key={x.id}><span>{x.nombre}</span><span>{x.participantes}</span><span>{x.activa?'Activa':'Inactiva'}</span></div>)}
+              <div className="visitor-table"><div className="visitor-table-head visitor-church-grid"><span>Localidad</span><span>Participantes</span></div>
+                {data.iglesias.map(x=><div className="visitor-table-row visitor-church-grid" key={x.id}><span>{x.nombre}</span><span>{x.participantes}</span></div>)}
               </div>
             </>}
             {section === 'Participantes' && <>
@@ -145,7 +145,7 @@ function VisitorDemo() {
               <p className="visitor-lead">Selecciona una localidad o un nivel para consultar sus integrantes. Los listados se pueden desplazar dentro del cuadro.</p>
               <h2>Participantes por localidad</h2>
               <div className="visitor-table visitor-report-scroll"><div className="visitor-table-head visitor-church-grid"><span>Localidad</span><span>Participantes</span><span>Estado</span></div>
-                {data.iglesias.map(x=><button type="button" className={`visitor-table-row visitor-church-grid visitor-report-select ${reportSelection.type==='localidad'&&reportSelection.value===x.nombre?'visitor-report-selected':''}`} key={x.id} onClick={()=>setReportSelection(reportSelection.type==='localidad'&&reportSelection.value===x.nombre?{type:'',value:''}:{type:'localidad',value:x.nombre})}><span>{x.nombre}</span><span>{x.participantes}</span><span>{x.activa?'Activa':'Inactiva'}</span></button>)}
+                {data.iglesias.map(x=><button type="button" className={`visitor-table-row visitor-church-grid visitor-report-select ${reportSelection.type==='localidad'&&reportSelection.value===x.nombre?'visitor-report-selected':''}`} key={x.id} onClick={()=>setReportSelection(reportSelection.type==='localidad'&&reportSelection.value===x.nombre?{type:'',value:''}:{type:'localidad',value:x.nombre})}><span>{x.nombre}</span><span>{x.participantes}</span></button>)}
               </div>
               <h2 className="visitor-subheading">Inscripciones por nivel</h2><div className="visitor-levels visitor-report-scroll">
                 {levels.map(x=><button type="button" className={`visitor-level-select ${reportSelection.type==='nivel'&&reportSelection.value===x.nivel_numero?'visitor-report-selected':''}`} key={x.nivel_numero} onClick={()=>setReportSelection(reportSelection.type==='nivel'&&reportSelection.value===x.nivel_numero?{type:'',value:''}:{type:'nivel',value:x.nivel_numero})}><span>Nivel {x.nivel_numero}</span><strong>{x.nivel}</strong><small>{data.inscripciones.filter(y=>y.nivel_numero===x.nivel_numero).length} inscripciones</small></button>)}
@@ -1477,6 +1477,19 @@ export default function App() {
             <span className="module-count">{churches.length} registradas</span>
           </div>
 
+          <div className="church-list">
+            {churchesLoading ? <p className="empty-state">Cargando iglesias…</p> : churches.length === 0 ? (
+              <div className="empty-state"><strong>Aún no hay iglesias registradas.</strong><span>Cuando agregues una, aparecerá en esta lista.</span></div>
+            ) : (
+              churches.map((church) => (
+                <article className="church-row" key={church.id}>
+                  <div><strong>{church.nombre}</strong></div>
+                  <button className="text-button" type="button" onClick={() => handleToggleChurch(church)}>{church.activa ? 'Desactivar' : 'Activar'}</button>
+                </article>
+              ))
+            )}
+          </div>
+          {churchError && <p className="auth-error" role="alert">{churchError}</p>}
           <form className="church-form" onSubmit={handleAddChurch}>
             <label htmlFor="church-name">Agregar iglesia</label>
             <div className="church-form-row">
@@ -1484,20 +1497,6 @@ export default function App() {
               <button className="primary-button" type="submit" disabled={savingChurch || !churchName.trim()}>{savingChurch ? 'Guardando…' : 'Agregar iglesia'}</button>
             </div>
           </form>
-
-          {churchError && <p className="auth-error" role="alert">{churchError}</p>}
-          <div className="church-list">
-            {churchesLoading ? <p className="empty-state">Cargando iglesias…</p> : churches.length === 0 ? (
-              <div className="empty-state"><strong>Aún no hay iglesias registradas.</strong><span>Cuando agregues una, aparecerá en esta lista.</span></div>
-            ) : (
-              churches.map((church) => (
-                <article className="church-row" key={church.id}>
-                  <div><strong>{church.nombre}</strong><span className={church.activa ? 'status-active' : 'status-inactive'}>{church.activa ? 'Activa' : 'Inactiva'}</span></div>
-                  <button className="text-button" type="button" onClick={() => handleToggleChurch(church)}>{church.activa ? 'Desactivar' : 'Activar'}</button>
-                </article>
-              ))
-            )}
-          </div>
         </section>
 
       ) : activeModule === 'Finanzas' ? (
