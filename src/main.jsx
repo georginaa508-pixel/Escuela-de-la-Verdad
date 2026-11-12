@@ -27,6 +27,7 @@ class AppErrorBoundary extends React.Component {
             <h2>No pudimos cargar la aplicación</h2>
             <p className="auth-description">Detectamos un error al iniciar. Tus registros no se han modificado.</p>
             <p className="auth-error" role="alert">{String(this.state.error?.message || this.state.error)}</p>
+            <details style={{ marginTop: '16px', textAlign: 'left' }}><summary>Detalles técnicos para localizar el error</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: '11px', maxHeight: '240px', overflow: 'auto' }}>{String(this.state.error?.stack || 'No hay más detalles disponibles.')}</pre></details>
             <button className="login-button" type="button" onClick={() => window.location.reload()}>Volver a intentar</button>
           </section>
         </main>
