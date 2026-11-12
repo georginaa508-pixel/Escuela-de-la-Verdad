@@ -710,3 +710,52 @@ footer { padding: 22px 0 30px; border-top: 1px solid #dfe5dd; color: #89958d; fo
  .cabin-edit-row { grid-template-columns:1fr 1fr; }
  .cabin-edit-row button { grid-column:1/-1; justify-self:start; }
 }
+
+
+/* Menús móviles: opciones en lista vertical, no en fila continua.
+   En escritorio se conserva la distribución actual. */
+@media (max-width: 760px) {
+  .module-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 10px;
+  }
+  .module-sidebar .sidebar-label {
+    flex: none;
+    margin: 0 5px 6px;
+  }
+  .module-sidebar .sidebar-link {
+    display: flex;
+    width: 100%;
+    min-height: 42px;
+    align-items: center;
+    justify-content: flex-start;
+    white-space: normal;
+    padding: 7px 10px;
+  }
+  .visitor-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 14px 0;
+  }
+  .visitor-nav .eyebrow,
+  .visitor-nav .visitor-note {
+    width: 100%;
+  }
+  .visitor-nav button {
+    width: 100%;
+    margin: 0;
+    text-align: left;
+  }
+}
+
+@media (max-width: 560px) {
+  .module-sidebar { margin-top: 8px; }
+  .module-sidebar .sidebar-link { font-size: 12px; }
+}
