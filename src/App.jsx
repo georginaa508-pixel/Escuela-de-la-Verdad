@@ -393,7 +393,7 @@ function VisitorDemo() {
               <article><span>Ciclo en preparación</span><strong>2026</strong><small>26–31 de diciembre</small></article>
             </div>
             <h2>Conoce los módulos</h2><div className="visitor-module-grid">
-              {nav.slice(1).map(([label,number])=><button key={label} onClick={()=>{setSection(label);setSearch('');}}><span>{number}</span><strong>{label}</strong><small>{({Iglesias:'Localidades y cantidad de participantes.',Participantes:'Listado general de personas registradas.',Inscripciones:'Ciclos, niveles y estado de participación.',Finanzas:'Resumen de ingresos, egresos y cuotas.',Reportes:'Resumen por localidad y nivel.','Grupos de estudio':'Grupos históricos y estructura por nivel y sexo.'})[label]}</small></button>)}
+              {nav.slice(1).map(([label,number])=><button key={label} onClick={()=>{setSection(label);setSearch('');}}><span>{number}</span><strong>{label}</strong><small>{({Iglesias:'Localidades y cantidad de participantes.',Participantes:'Listado general de personas registradas.',Inscripciones:'Ciclos, niveles y estado de participación.',Finanzas:'Resumen de ingresos, egresos y cuotas.',Reportes:'Resumen por localidad y nivel.','Grupos de estudio':'Grupos históricos y estructura por nivel y sexo.','Cabañas':'Distribución general del alojamiento y capacidad.'})[label]}</small></button>)}
             </div>
           </> : <>
             <button className="visitor-back" onClick={()=>{setSection('Inicio');setSearch('');}}>← Volver al inicio</button>
@@ -2715,7 +2715,7 @@ export default function App() {
               <span className="module-count">07 módulos</span>
             </div>
             <div className="module-grid">
-              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
+              {modules.filter((module) => ['Iglesias', 'Participantes', 'Inscripciones', 'Finanzas', 'Reportes', 'Grupos de estudio', 'Cabañas'].includes(module.title) && (profile?.rol === 'coordinacion_general' || (profile?.rol === 'finanzas' && ['Finanzas', 'Reportes'].includes(module.title)))).map((module) => (
                 <button className="module-card module-card-button" key={module.number} type="button" onClick={() => (['Iglesias', 'Participantes', 'Inscripciones', 'Grupos de estudio', 'Cabañas'].includes(module.title) && profile?.rol === 'coordinacion_general') || ['Finanzas', 'Reportes'].includes(module.title) ? setActiveModule(module.title) : null}>
                   <span className="module-number">{module.number}</span>
                   <h3>{module.title}</h3>
