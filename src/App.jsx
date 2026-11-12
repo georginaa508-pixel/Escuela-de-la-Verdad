@@ -956,6 +956,7 @@ export default function App() {
   const reportCycle = reportCycles.find((cycle) => cycle.id === reportCycleId);
   const reportCycleEnrollments = reportEnrollments.filter((item) => item.ciclo_id === reportCycleId);
   const reportEnrollmentByParticipant = new Map(reportCycleEnrollments.map((item) => [item.participante_id, item]));
+  const reportActiveParticipants = reportParticipants.filter((item) => item.activo !== false);
   const reportFilteredParticipants = reportActiveParticipants
     .filter((person) => {
       const enrollment = reportEnrollmentByParticipant.get(person.id);
@@ -968,8 +969,6 @@ export default function App() {
       return true;
     })
     .sort((a, b) => (a.nombre_completo || '').localeCompare(b.nombre_completo || '', 'es'));
-
-  const reportActiveParticipants = reportParticipants.filter((item) => item.activo !== false);
   const reportLocalitySummary = reportChurches.map((church) => ({
     localidad: church.nombre,
     participantes: reportActiveParticipants.filter((item) => item.iglesia_id === church.id).length,
